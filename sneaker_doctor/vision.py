@@ -44,3 +44,36 @@ def predict(image: Image.Image) -> list[tuple[str, float]] | None:
         return None
     probs = model.predict(preprocess(image), verbose=0)[0]
     return sorted(zip(labels, map(float, probs)), key=lambda t: -t[1])
+
+
+# ---------------- Filtro: ¿la foto muestra un calzado? ----------------
+# Clases de calzado de ImageNet: zueco, bota vaquera, mocasín, zapatilla deportiva y sandalia.
+SHOE_CLASSES = [502, 514, 630, 770, 774]
+SHOE_MIN = 0.03  # probabilidad total de calzado para aceptar la foto (probado con las fotos de cleanlab.pe)
+
+
+@lru_cache(maxsize=1)
+def load_filter():
+    """EfficientNetB0 original de ImageNet (1 000 objetos). Si no se puede cargar, no se filtra."""
+    try:
+        import tensorflow as tf
+
+        return tf.keras.applications.EfficientNetB0(weights="imagenet")
+    except Exception:
+        return None
+
+
+def shoe_score(image: Image.Image) -> float | None:
+    """Probabilidad de que la foto sea un calzado, o None si el filtro no está disponible."""
+    model = load_filter()
+    if model is None:
+        return None
+    probs = model.predict(preprocess(image), verbose=0)[0]
+    top5 = set(np.argsort(probs)[-5:].tolist())
+    score = float(probs[SHOE_CLASSES].sum())
+    # Si algún calzado está entre los 5 objetos más probables, se acepta aunque la suma sea baja
+    return max(score, SHOE_MIN) if top5 & set(SHOE_CLASSES) else score
+
+
+def is_shoe(score: float | None) -> bool:
+    return score is None or score >= SHOE_MIN

@@ -58,6 +58,14 @@ div.stVerticalBlock.st-key-chat_msgs, div[data-testid="stLayoutWrapper"]:has(> d
 /* En Streamlit Cloud el distintivo de la esquina inferior derecha tapaba el botón de enviar */
 [data-testid="stChatInput"] {{ margin-right: 52px; }}
 /* Ventanas bajas o angostas (celular): sin paneles fijos, la página se desplaza normalmente */
+@media (max-width: 640px) {{
+  .sd-hero {{ height: auto; padding: 12px 16px; gap: 12px; align-items: center; }}
+  .sd-hero img {{ height: 40px; flex-shrink: 0; }}
+  .sd-hero h1 {{ font-size: 1.25rem; }}
+  .sd-hero p {{ font-size: .82rem; line-height: 1.3; margin-top: 2px; }}
+  .block-container {{ padding: 12px 14px 0 !important; }}
+  .sd-steps {{ grid-template-columns: 1fr; }}
+}}
 @media (max-height: 620px), (max-width: 900px) {{
   html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"] {{ overflow: auto !important; }}
   .st-key-left_panel, .st-key-kit_panel {{ max-height: none !important; overflow: visible !important; }}
@@ -124,6 +132,12 @@ def diagnose(raw: bytes):
 
 
 @st.cache_data(show_spinner=False, max_entries=20)
+def shoe_score(raw: bytes):
+    """¿Es un calzado? Se calcula una vez por foto."""
+    return vision.shoe_score(Image.open(io.BytesIO(raw)))
+
+
+@st.cache_data(show_spinner=False, max_entries=20)
 def photo_for_chat(raw: bytes) -> bytes:
     return chat.image_to_jpeg(Image.open(io.BytesIO(raw)))
 
@@ -177,7 +191,7 @@ with left, st.container(key="left_panel"):
     photo = st.file_uploader("Foto de la zapatilla", type=["jpg", "jpeg", "png", "webp"], label_visibility="collapsed")
     if photo is None and os.getenv("SD_DEMO_IMAGE"):  # solo para pruebas locales
         photo = os.getenv("SD_DEMO_IMAGE")
-    raw, image = None, None
+    raw, image, blocked = None, None, False
     if photo is not None:
         raw = photo.getvalue() if hasattr(photo, "getvalue") else Path(photo).read_bytes()
         try:  # archivos que no son imágenes, dañados o "bombas" de píxeles gigantes
@@ -201,6 +215,20 @@ with left, st.container(key="left_panel"):
         </div>""", unsafe_allow_html=True)
         materials, sole, needs, rec = [], None, [], None
     else:
+        photo_key = feedback.photo_id(raw)
+        with st.spinner("Revisando la foto…"):
+            looks_like_shoe = vision.is_shoe(shoe_score(raw))
+        if not looks_like_shoe and not st.session_state.get(f"shoe_ok_{photo_key}"):
+            blocked = True
+            c_img, c_res = st.columns([2, 3], gap="small")
+            c_img.image(image, width="stretch")
+            c_res.markdown("<div class='sd-warn'><b>Esta foto no parece una zapatilla.</b><br>Sube una foto de costado, "
+                           "con la zapatilla completa y buena luz.</div>", unsafe_allow_html=True)
+            if c_res.button("Sí es una zapatilla, continuar", key=f"force_{photo_key}"):
+                st.session_state[f"shoe_ok_{photo_key}"] = True
+                st.rerun()
+            materials, sole, needs, rec = [], None, [], None
+    if photo is not None and not blocked:
         with st.spinner("Analizando el material…"):
             ranking = diagnose(raw)
         c_img, c_res = st.columns([2, 3], gap="small")
@@ -244,7 +272,7 @@ with left, st.container(key="left_panel"):
 # ---------------- Columna central: el kit ----------------
 middle.markdown("<div class='sd-step'>3 · Tu kit Clean Lab</div>", unsafe_allow_html=True)
 with middle, st.container(key="kit_panel"):
-    if photo is None:
+    if photo is None or blocked:
         st.markdown("<div class='sd-empty'>Aquí aparecerán los productos Clean Lab indicados para tu zapatilla, "
                     "con la opción de mejor precio.</div>", unsafe_allow_html=True)
     elif not materials:
@@ -366,4 +394,5 @@ def chat_panel(materials, sole, needs, rec, photo_jpeg, photo_key):
 
 
 with right, st.container(key="chat_panel"):
-    chat_panel(materials, sole, needs, rec, photo_for_chat(raw) if raw else None, feedback.photo_id(raw) if raw else None)
+    ready = raw is not None and not blocked
+    chat_panel(materials, sole, needs, rec, photo_for_chat(raw) if ready else None, feedback.photo_id(raw) if ready else None)

@@ -166,3 +166,10 @@ def test_limite_global_de_preguntas():
 
     limit = chat.RateLimit(2)
     assert [limit.allow() for _ in range(3)] == [True, True, False]
+
+
+def test_filtro_de_zapatillas():
+    from sneaker_doctor import vision
+
+    assert vision.is_shoe(None)  # sin filtro disponible no se bloquea
+    assert vision.is_shoe(0.5) and not vision.is_shoe(0.0)
