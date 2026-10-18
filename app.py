@@ -55,6 +55,8 @@ header[data-testid="stHeader"] {{ display: none; }}
 /* Chat: ocupa el alto disponible; el contenedor de Streamlit se mantiene en el último mensaje */
 div.stVerticalBlock.st-key-chat_msgs, div[data-testid="stLayoutWrapper"]:has(> div.st-key-chat_msgs) {{ height: max(220px, calc(100vh - 262px)) !important; min-height: max(220px, calc(100vh - 262px)) !important; max-height: none !important; }}
 .st-key-left_panel > div:first-child, .st-key-kit_panel > div:first-child {{ margin-top: 0 !important; }}
+/* En Streamlit Cloud el distintivo de la esquina inferior derecha tapaba el botón de enviar */
+[data-testid="stChatInput"] {{ margin-right: 52px; }}
 /* Ventanas bajas o angostas (celular): sin paneles fijos, la página se desplaza normalmente */
 @media (max-height: 620px), (max-width: 900px) {{
   html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"] {{ overflow: auto !important; }}
