@@ -1,0 +1,45 @@
+{
+  "test_accuracy": 0.782051282051282,
+  "baseline_accuracy": 0.20833333333333334,
+  "accuracy_por_fuente": {
+    "kaggle": 0.782051282051282
+  },
+  "accuracy_por_material": {
+    "gamuza": 0.6442953020134228,
+    "cuero": 0.7654867256637168,
+    "lona": 0.8387096774193549,
+    "malla": 0.9487179487179487
+  },
+  "confusion": {
+    "cuero": {
+      "cuero": 173,
+      "gamuza": 30,
+      "lona": 5,
+      "malla": 6
+    },
+    "gamuza": {
+      "cuero": 28,
+      "gamuza": 192,
+      "lona": 24,
+      "malla": 2
+    },
+    "lona": {
+      "cuero": 14,
+      "gamuza": 51,
+      "lona": 182,
+      "malla": 2
+    },
+    "malla": {
+      "cuero": 11,
+      "gamuza": 25,
+      "lona": 6,
+      "malla": 185
+    }
+  },
+  "finetune": {
+    "epochs": 6,
+    "layers": 40
+  },
+  "n_train": 4164,
+  "n_test": 936
+}

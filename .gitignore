@@ -1,0 +1,26 @@
+# Credenciales
+.env
+.streamlit/secrets.toml
+kaggle.json
+
+# Entorno
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Datos: nunca al repositorio (salvo el catálogo)
+data/raw/
+data/processed/
+data/cache/
+data/co_purchase.csv
+data/feedback/
+
+# Configuración local del editor
+.claude/
+
+# Resultados de entrenamiento que no se publican
+models/errores_prueba.csv
+models/modelo.zip
+models/anterior/
