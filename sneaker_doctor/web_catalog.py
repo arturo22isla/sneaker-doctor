@@ -11,13 +11,16 @@ import requests
 STORE = "https://cleanlab.pe"
 INSTRUCTION_HEADINGS = r"(Modo de uso|Instrucciones de uso|Instrucciones|Cómo usar)"
 CUT_AT = r"(Mira nuestro video|Consejos útiles|Importante:|Preguntas frecuentes)"
+# Cloudflare responde 429 a los scripts sin identificar ("python-requests"): la app dice quién es.
+HEADERS = {"User-Agent": "SneakerDoctor/1.0 (+https://sneaker-doctor.streamlit.app)", "Accept": "application/json"}
 
 
 def fetch_products(timeout: float = 15) -> list[dict]:
     """Todos los productos de la tienda (paginando de a 250)."""
     products, page = [], 1
     while True:
-        resp = requests.get(f"{STORE}/products.json", params={"limit": 250, "page": page}, timeout=timeout)
+        resp = requests.get(f"{STORE}/products.json", params={"limit": 250, "page": page}, headers=HEADERS,
+                            timeout=timeout)
         resp.raise_for_status()
         batch = resp.json().get("products", [])
         products += batch

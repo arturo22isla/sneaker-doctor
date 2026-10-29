@@ -114,15 +114,19 @@ div.stVerticalBlock.st-key-chat_msgs, div[data-testid="stLayoutWrapper"]:has(> d
 </div>""", unsafe_allow_html=True)
 
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=3600, show_spinner=False)
+def web_rows() -> list[dict]:
+    """Productos de cleanlab.pe. Si la tienda no responde, el error no se guarda en caché y se reintenta."""
+    return to_rows(fetch_products(timeout=8))
+
+
 def data():
-    """Catálogo local con precios, promociones, stock e imágenes actualizados desde cleanlab.pe (cada hora)."""
+    """Catálogo local actualizado con precios, promociones, stock e imágenes de cleanlab.pe (cada hora)."""
     catalog = load_catalog()
     try:
-        catalog = refresh_from_web(catalog, to_rows(fetch_products(timeout=8)))
+        return refresh_from_web(catalog, web_rows()), load_co_purchase(), True
     except Exception:
-        pass  # sin conexión con la tienda: se usan los datos del CSV
-    return catalog, load_co_purchase()
+        return catalog, load_co_purchase(), False  # sin conexión con la tienda: se usan los datos del CSV
 
 
 @st.cache_data(show_spinner=False, max_entries=20)
@@ -182,7 +186,7 @@ def total_bar(amount: float, badge: str = ""):
                 unsafe_allow_html=True)
 
 
-catalog, co_purchase = data()
+catalog, co_purchase, live_prices = data()
 left, middle, right = st.columns([1.05, 1.25, 1.1], gap="medium")
 
 # ---------------- Columna izquierda: foto y diagnóstico ----------------
@@ -297,7 +301,8 @@ with middle, st.container(key="kit_panel"):
         if rec["extra"]:
             st.markdown(f"Los clientes que compran este kit también suelen llevar **{rec['extra']['nombre']}** "
                         f"(S/ {rec['extra']['precio']:.2f}).")
-        st.caption("Precios, promociones e imágenes de cleanlab.pe, actualizados cada hora.")
+        st.caption("Precios, promociones e imágenes de cleanlab.pe, actualizados cada hora." if live_prices else
+                   "No pudimos conectar con cleanlab.pe: los precios pueden no estar al día. Confírmalos en la tienda.")
 
 # ---------------- Columna derecha: chat ----------------
 def typing(stream, dots):
