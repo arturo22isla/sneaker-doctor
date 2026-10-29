@@ -120,6 +120,15 @@ def web_rows() -> list[dict]:
     return to_rows(fetch_products(timeout=8))
 
 
+def catalog_date() -> str:
+    """Fecha de la última copia del catálogo (scripts/actualizar_catalogo.py), en formato dd/mm/aaaa."""
+    try:
+        y, m, d = (config.CATALOG_PATH.with_name("catalog_fecha.txt").read_text(encoding="utf-8").strip().split("-"))
+        return f"{d}/{m}/{y}"
+    except (OSError, ValueError):
+        return "la última actualización"
+
+
 def data():
     """Catálogo local actualizado con precios, promociones, stock e imágenes de cleanlab.pe (cada hora)."""
     catalog = load_catalog()
@@ -302,7 +311,7 @@ with middle, st.container(key="kit_panel"):
             st.markdown(f"Los clientes que compran este kit también suelen llevar **{rec['extra']['nombre']}** "
                         f"(S/ {rec['extra']['precio']:.2f}).")
         st.caption("Precios, promociones e imágenes de cleanlab.pe, actualizados cada hora." if live_prices else
-                   "No pudimos conectar con cleanlab.pe: los precios pueden no estar al día. Confírmalos en la tienda.")
+                   f"Precios de cleanlab.pe al {catalog_date()}. Confírmalos en la tienda antes de comprar.")
 
 # ---------------- Columna derecha: chat ----------------
 def typing(stream, dots):

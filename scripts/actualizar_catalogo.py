@@ -8,6 +8,7 @@ Para productos nuevos la deduce de la categoría y el nombre; esos quedan marcad
 """
 import re
 import sys
+from datetime import date
 from pathlib import Path
 
 import pandas as pd
@@ -53,6 +54,8 @@ def main():
     cols = ["sku", "nombre", "precio", "precio_antes", "disponible", "tipo", "materiales", "categoria_web", "url", "imagen", "variant_id",
             "instrucciones", "revisar"]
     web[cols].sort_values("sku").to_csv(config.CATALOG_PATH, index=False)
+    # Fecha de la copia: la app la muestra cuando no puede leer los precios en vivo
+    config.CATALOG_PATH.with_name("catalog_fecha.txt").write_text(date.today().isoformat(), encoding="utf-8")
 
     promo = web["precio_antes"].notna().sum()
     print(f"Productos: {len(web)} · en promoción: {promo} · sin stock: {(~web['disponible']).sum()} · con instrucciones: {(web['instrucciones'] != '').sum()}")
