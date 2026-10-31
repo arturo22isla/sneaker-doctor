@@ -173,3 +173,14 @@ def test_filtro_de_zapatillas():
 
     assert vision.is_shoe(None)  # sin filtro disponible no se bloquea
     assert vision.is_shoe(0.5) and not vision.is_shoe(0.0)
+
+
+def test_precios_de_la_web_actualizan_el_catalogo():
+    from sneaker_doctor.catalog import load_catalog, refresh_from_web
+
+    catalog = load_catalog()
+    sku = catalog.index[0]
+    rows = [{"sku": sku, "precio": 1.5, "precio_antes": 9.9, "disponible": True, "variant_id": 123456789,
+             "imagen": "https://cdn.shopify.com/x.png", "instrucciones": "Paso 1"}]
+    new = refresh_from_web(catalog, rows)
+    assert new.loc[sku, "precio"] == 1.5 and new.loc[sku, "variant_id"] == "123456789"

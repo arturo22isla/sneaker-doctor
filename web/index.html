@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sneaker Doctor · Clean Lab</title>
+  <meta name="description" content="Sube una foto de tu zapatilla: detectamos el material y te decimos qué productos Clean Lab usar y cómo limpiarla.">
+  <link rel="icon" href="/assets/bot.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;800&display=swap">
+  <link rel="stylesheet" href="/static/styles.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <header class="hero">
+    <img src="/assets/logo.png" alt="Clean Lab">
+    <div>
+      <h1>Sneaker Doctor</h1>
+      <p>Sube una foto de tu zapatilla y te decimos cómo limpiarla</p>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- 1 y 2 · Foto y diagnóstico -->
+    <section class="panel" aria-labelledby="t-foto">
+      <h2 class="step" id="t-foto">1 · Tu zapatilla</h2>
+      <label class="drop" id="drop">
+        <input type="file" id="file" accept="image/jpeg,image/png,image/webp" hidden>
+        <span class="drop-btn">Subir foto</span>
+        <span class="drop-hint">JPG, PNG o WEBP · hasta 10 MB</span>
+      </label>
+      <p class="note">Tu foto se analiza para recomendarte productos y el chat la envía a Google Gemini para
+        responderte. No la guardamos. No compartas datos personales en el chat.</p>
+
+      <div class="empty" id="empty">
+        Sube una foto <b>de costado</b>, con buena luz y la zapatilla completa.
+        <div class="steps"><div><b>1</b>Sube tu foto</div><div><b>2</b>Detectamos el material</div>
+          <div><b>3</b>Recibe tu kit y cómo usarlo</div></div>
+      </div>
+
+      <div id="diagnosis" hidden>
+        <div class="diag">
+          <img id="preview" alt="Tu zapatilla">
+          <div id="result" class="result" aria-live="polite"></div>
+        </div>
+        <div id="notshoe" class="warn" hidden>
+          <b>Esta foto no parece una zapatilla.</b> Sube una foto de costado, con la zapatilla completa y buena luz.
+          <button type="button" class="btn-ghost" id="force">Sí es una zapatilla, continuar</button>
+        </div>
+        <div id="details" hidden>
+          <fieldset>
+            <legend>¿Es correcto? Corrígelo o agrega otro material</legend>
+            <div class="chips" id="materials"></div>
+          </fieldset>
+          <div class="feedback" id="feedback">
+            <span>¿Acertamos el material?</span>
+            <button type="button" data-ok="1" aria-label="Sí, acertaron">👍</button>
+            <button type="button" data-ok="0" aria-label="No, se equivocaron">👎</button>
+          </div>
+          <h2 class="step">2 · Cuéntanos un poco más</h2>
+          <fieldset>
+            <legend>¿Cómo está la suela?</legend>
+            <div class="chips" id="soles"></div>
+          </fieldset>
+          <fieldset>
+            <legend>¿Algo más que te preocupe? (opcional)</legend>
+            <div class="chips" id="needs"></div>
+          </fieldset>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3 · Kit -->
+    <section class="panel" aria-labelledby="t-kit">
+      <h2 class="step" id="t-kit">3 · Tu kit Clean Lab</h2>
+      <div class="empty" id="kit-empty">Aquí aparecerán los productos Clean Lab indicados para tu zapatilla,
+        con la opción de mejor precio.</div>
+      <div id="kit" hidden aria-live="polite"></div>
+    </section>
+
+    <!-- 4 · Chat -->
+    <section class="panel chat" aria-labelledby="t-chat">
+      <h2 class="step" id="t-chat">4 · Pregúntale a Sneaker Doctor</h2>
+      <div class="messages" id="messages" aria-live="polite"></div>
+      <div class="chips suggestions" id="suggestions"></div>
+      <form id="ask" class="ask" autocomplete="off">
+        <input id="question" maxlength="400" placeholder="Escribe tu pregunta…" aria-label="Tu pregunta" disabled>
+        <button type="submit" aria-label="Enviar" disabled>➤</button>
+      </form>
+    </section>
+  </main>
+  <div class="toast" id="toast" role="status" hidden></div>
+</body>
+</html>

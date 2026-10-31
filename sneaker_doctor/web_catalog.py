@@ -15,8 +15,58 @@ CUT_AT = r"(Mira nuestro video|Consejos útiles|Importante:|Preguntas frecuentes
 HEADERS = {"User-Agent": "SneakerDoctor/1.0 (+https://sneaker-doctor.streamlit.app)", "Accept": "application/json"}
 
 
+STOREFRONT_QUERY = """
+query Productos($after: String) {
+  products(first: 250, after: $after) {
+    pageInfo { hasNextPage endCursor }
+    nodes {
+      title handle productType descriptionHtml
+      images(first: 1) { nodes { url } }
+      variants(first: 50) {
+        nodes { id sku availableForSale price { amount } compareAtPrice { amount } }
+      }
+    }
+  }
+}"""
+
+
+def fetch_storefront(token: str, domain: str, version: str, timeout: float = 15) -> list[dict]:
+    """Productos con la Storefront API oficial de Shopify (token de solo lectura).
+
+    Devuelve el mismo formato que /products.json para reutilizar `to_rows`."""
+    url = f"https://{domain}/api/{version}/graphql.json"
+    headers = {**HEADERS, "Content-Type": "application/json", "X-Shopify-Storefront-Access-Token": token}
+    products, after = [], None
+    while True:
+        resp = requests.post(url, json={"query": STOREFRONT_QUERY, "variables": {"after": after}},
+                             headers=headers, timeout=timeout)
+        resp.raise_for_status()
+        body = resp.json()
+        if body.get("errors"):
+            raise RuntimeError(f"Storefront API: {body['errors'][0].get('message', 'error')}")
+        page = body["data"]["products"]
+        for n in page["nodes"]:
+            products.append({
+                "title": n["title"], "handle": n["handle"], "product_type": n.get("productType") or "",
+                "body_html": n.get("descriptionHtml") or "",
+                "images": [{"src": i["url"]} for i in n["images"]["nodes"]],
+                "variants": [{"id": int(v["id"].rsplit("/", 1)[-1]), "sku": v.get("sku") or "",
+                              "available": v["availableForSale"], "price": v["price"]["amount"],
+                              "compare_at_price": (v.get("compareAtPrice") or {}).get("amount")}
+                             for v in n["variants"]["nodes"]],
+            })
+        if not page["pageInfo"]["hasNextPage"]:
+            return products
+        after = page["pageInfo"]["endCursor"]
+
+
 def fetch_products(timeout: float = 15) -> list[dict]:
-    """Todos los productos de la tienda (paginando de a 250)."""
+    """Todos los productos de la tienda: con la Storefront API si hay token; si no, /products.json."""
+    from sneaker_doctor import config
+
+    if config.SHOPIFY_STOREFRONT_TOKEN:
+        return fetch_storefront(config.SHOPIFY_STOREFRONT_TOKEN, config.SHOPIFY_DOMAIN, config.SHOPIFY_API_VERSION,
+                                timeout)
     products, page = [], 1
     while True:
         resp = requests.get(f"{STORE}/products.json", params={"limit": 250, "page": page}, headers=HEADERS,

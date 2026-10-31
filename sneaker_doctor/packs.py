@@ -24,7 +24,8 @@ PACKS = {
 }
 
 
-def best_option(needed: list[str], catalog: pd.DataFrame, max_packs: int = 2) -> dict | None:
+def best_option(needed: list[str], catalog: pd.DataFrame, max_packs: int = 2,
+                exclude: set[str] | frozenset = frozenset()) -> dict | None:
     """Combinación de hasta `max_packs` packs + productos sueltos que cubre `needed` al menor precio.
 
     Solo se devuelve si sale más barata que comprar todo suelto. Los productos de más
@@ -34,7 +35,7 @@ def best_option(needed: list[str], catalog: pd.DataFrame, max_packs: int = 2) ->
     price = lambda s: float(catalog.loc[s, "precio"])  # noqa: E731
     singles_total = sum(price(s) for s in needed)
     packs = [p for p, items in PACKS.items()
-             if p in catalog.index and catalog.loc[p, "disponible"] and set(items) & set(needed)]
+             if p not in exclude and p in catalog.index and catalog.loc[p, "disponible"] and set(items) & set(needed)]
 
     best = None
     for n in range(1, max_packs + 1):
