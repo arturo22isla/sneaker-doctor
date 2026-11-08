@@ -58,7 +58,6 @@ sneaker-doctor/
 ├── data/catalog.csv             catálogo público de Clean Lab
 ├── models/                      modelo entrenado, etiquetas y métricas
 ├── tests/                       pruebas con pytest (núcleo y API)
-├── app.py                       versión anterior en Streamlit (se retira al publicar la web)
 ├── Dockerfile                   imagen de la página web para Cloud Run
 └── DESPLIEGUE.md                cómo publicarla en Google Cloud y conectar Shopify
 ```

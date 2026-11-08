@@ -12,7 +12,7 @@ STORE = "https://cleanlab.pe"
 INSTRUCTION_HEADINGS = r"(Modo de uso|Instrucciones de uso|Instrucciones|Cómo usar)"
 CUT_AT = r"(Mira nuestro video|Consejos útiles|Importante:|Preguntas frecuentes)"
 # Cloudflare responde 429 a los scripts sin identificar ("python-requests"): la app dice quién es.
-HEADERS = {"User-Agent": "SneakerDoctor/1.0 (+https://sneaker-doctor.streamlit.app)", "Accept": "application/json"}
+HEADERS = {"User-Agent": "SneakerDoctor/1.0 (+https://sneaker-doctor-928770385966.us-central1.run.app)", "Accept": "application/json"}
 
 
 STOREFRONT_QUERY = """

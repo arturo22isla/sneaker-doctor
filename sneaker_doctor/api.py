@@ -149,9 +149,9 @@ app = FastAPI(title="Sneaker Doctor", lifespan=lifespan, docs_url=None, redoc_ur
 
 # Sitios que pueden mostrar la página dentro de un iframe: la tienda, el editor de temas de Shopify y sus vistas previas
 # (el editor de temas muestra la vista previa dentro de online-store-web.shopifyapps.com, dentro de admin.shopify.com)
-FRAME_ANCESTORS = config.get("FRAME_ANCESTORS", "https://cleanlab.pe https://*.cleanlab.pe https://*.myshopify.com "
-                                                "https://admin.shopify.com https://*.shopifyapps.com "
-                                                "https://*.shopifypreview.com")
+# Solo la tienda de Clean Lab: no cualquier tienda de Shopify (*.myshopify.com) ni enlaces de vista previa de terceros
+FRAME_ANCESTORS = config.get("FRAME_ANCESTORS", "https://cleanlab.pe https://*.cleanlab.pe https://cleanlab-pe.myshopify.com "
+                                                "https://admin.shopify.com https://*.shopifyapps.com")
 CSP = ("default-src 'self'; img-src 'self' data: blob: https://cdn.shopify.com; "
        "style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; "
        "connect-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; "
