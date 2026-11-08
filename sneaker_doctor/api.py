@@ -217,7 +217,7 @@ def build_kit(data: KitIn, catalog, co_purchase):
 
 # ---------------- Rutas ----------------
 
-@app.get("/healthz")
+@app.get("/api/salud")  # Cloud Run reserva las rutas que terminan en "z", como /healthz
 def health():
     return {"ok": True}
 

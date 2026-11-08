@@ -36,28 +36,38 @@ Haz un pedido de prueba (por ejemplo con un descuento del 100 %) para confirmar 
 
 1. Crea un proyecto en [console.cloud.google.com](https://console.cloud.google.com) y actívale la facturación.
 2. **Facturación → Presupuestos y alertas** → crea un presupuesto de 10 USD con aviso por correo.
-3. **Secret Manager** → *Crear secreto* (pega el valor en la consola, no en la terminal):
-   - `gemini-api-key` → tu clave de Gemini
-   - `shopify-storefront-token` → el token del paso 1
-4. Instala la CLI de Google Cloud y conéctala a tu proyecto (en PowerShell):
+3. Instala la CLI de Google Cloud e inicia sesión. En PowerShell usa `gcloud.cmd` (Windows bloquea los scripts `.ps1`):
 
 ```bash
 winget install Google.CloudSDK
 ```
 ```bash
-gcloud auth login
-```
-```bash
-gcloud config set project TU-PROYECTO
-```
-```bash
-gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com secretmanager.googleapis.com
+gcloud.cmd auth login
 ```
 
-5. Permite que Cloud Run lea los secretos (cambia `NUMERO` por el *número de proyecto* que aparece en la página de inicio de la consola):
+4. Crea los secretos (vacíos) y súbeles los valores desde `.env` sin mostrarlos:
 
 ```bash
-gcloud projects add-iam-policy-binding TU-PROYECTO --member=serviceAccount:NUMERO-compute@developer.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud.cmd secrets create gemini-api-key --replication-policy=automatic --project TU-PROYECTO
+```
+```bash
+gcloud.cmd secrets create shopify-storefront-token --replication-policy=automatic --project TU-PROYECTO
+```
+```bash
+.venv\Scripts\python.exe scripts\subir_secretos.py
+```
+
+5. Crea una **cuenta de servicio propia**, sin permisos sobre el proyecto, que solo lea esos dos secretos.
+   No uses la cuenta por defecto (`…-compute@developer…`): tiene rol Editor y daría acceso a BigQuery y a todo el proyecto.
+
+```bash
+gcloud.cmd iam service-accounts create sneaker-doctor-sa --display-name "Sneaker Doctor" --project TU-PROYECTO
+```
+```bash
+gcloud.cmd secrets add-iam-policy-binding gemini-api-key --member serviceAccount:sneaker-doctor-sa@TU-PROYECTO.iam.gserviceaccount.com --role roles/secretmanager.secretAccessor --project TU-PROYECTO
+```
+```bash
+gcloud.cmd secrets add-iam-policy-binding shopify-storefront-token --member serviceAccount:sneaker-doctor-sa@TU-PROYECTO.iam.gserviceaccount.com --role roles/secretmanager.secretAccessor --project TU-PROYECTO
 ```
 
 ## 4. Publicar (y volver a publicar después de cada cambio)
@@ -65,7 +75,7 @@ gcloud projects add-iam-policy-binding TU-PROYECTO --member=serviceAccount:NUMER
 Desde la carpeta del proyecto. Antes, si reentrenaste el modelo: `python scripts/exportar_tflite.py`.
 
 ```bash
-gcloud run deploy sneaker-doctor --source . --region us-central1 --allow-unauthenticated --memory 1Gi --cpu 1 --max-instances 3 --concurrency 20 --set-env-vars "LLM_PROVIDER=gemini,SHOPIFY_DOMAIN=TU-TIENDA.myshopify.com" --set-secrets "GEMINI_API_KEY=gemini-api-key:latest,SHOPIFY_STOREFRONT_TOKEN=shopify-storefront-token:latest"
+gcloud.cmd run deploy sneaker-doctor --source . --region us-central1 --project TU-PROYECTO --service-account sneaker-doctor-sa@TU-PROYECTO.iam.gserviceaccount.com --allow-unauthenticated --memory 1Gi --cpu 1 --max-instances 3 --concurrency 20 --set-env-vars "LLM_PROVIDER=gemini,SHOPIFY_DOMAIN=TU-TIENDA.myshopify.com" --set-secrets "GEMINI_API_KEY=gemini-api-key:latest,SHOPIFY_STOREFRONT_TOKEN=shopify-storefront-token:latest"
 ```
 
 Al terminar muestra la dirección, por ejemplo `https://sneaker-doctor-xxxx.us-central1.run.app`.
@@ -74,7 +84,7 @@ Al terminar muestra la dirección, por ejemplo `https://sneaker-doctor-xxxx.us-c
 ## 5. Dirección propia (opcional): doctor.cleanlab.pe
 
 ```bash
-gcloud beta run domain-mappings create --service sneaker-doctor --domain doctor.cleanlab.pe --region us-central1
+gcloud.cmd beta run domain-mappings create --service sneaker-doctor --domain doctor.cleanlab.pe --region us-central1
 ```
 
 Google pide verificar que el dominio es de Clean Lab (Search Console) y muestra un registro **CNAME** (`ghs.googlehosted.com`)
@@ -91,6 +101,7 @@ También se puede mostrar dentro de la tienda: en Shopify **Tienda online → P�
 | Riesgo | Cómo está cubierto |
 |---|---|
 | Robo de claves | Solo en Secret Manager; el navegador nunca las ve. `.gcloudignore` y `.dockerignore` impiden subir `.env` |
+| Acceso a otros datos del proyecto | El servicio corre con `sneaker-doctor-sa`: sin roles en el proyecto, solo lee sus 2 secretos (nada de BigQuery) |
 | Abuso del chat (gastar la cuota) | Por visitante: 6 preguntas/minuto y 60/día; en total: 12/minuto; preguntas de 400 caracteres como máximo |
 | Fotos maliciosas o enormes | Máximo 10 MB, se abren con Pillow con protección contra "bombas" de píxeles y se recodifican sin metadatos |
 | Entradas inventadas | Cada campo se valida (materiales, suela, necesidades y códigos de producto de una lista cerrada) |

@@ -21,7 +21,7 @@ def client(monkeypatch):
 
 
 def test_cabeceras_de_seguridad_y_sin_documentacion_publica(client):
-    r = client.get("/healthz")
+    r = client.get("/api/salud")
     assert r.json() == {"ok": True}
     assert "frame-ancestors" in r.headers["content-security-policy"]
     assert r.headers["x-content-type-options"] == "nosniff"
