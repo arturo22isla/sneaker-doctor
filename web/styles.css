@@ -148,3 +148,5 @@ html.embed { height: auto; }
 .embed .panel { overflow: visible; padding-right: 0; }
 .embed .messages { flex: none; height: 520px; }
 @media (max-width: 900px) { .embed .messages { height: 440px; } }
+/* La tienda tiene un chat flotante (Helpcenter) fijo abajo a la derecha: el botón de enviar queda a su izquierda */
+.embed .ask { padding-right: 84px; }
