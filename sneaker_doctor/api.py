@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel, Field, StringConstraints
@@ -147,10 +147,13 @@ app = FastAPI(title="Sneaker Doctor", lifespan=lifespan, docs_url=None, redoc_ur
 
 # ---------------- Cabeceras de seguridad ----------------
 
+# Sitios que pueden mostrar la página dentro de un iframe: la tienda, el editor de temas de Shopify y sus vistas previas
+FRAME_ANCESTORS = config.get("FRAME_ANCESTORS", "https://cleanlab.pe https://*.cleanlab.pe https://*.myshopify.com "
+                                                "https://admin.shopify.com https://*.shopifypreview.com")
 CSP = ("default-src 'self'; img-src 'self' data: blob: https://cdn.shopify.com; "
        "style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; "
        "connect-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; "
-       "frame-ancestors 'self' https://cleanlab.pe https://*.cleanlab.pe https://*.myshopify.com")
+       f"frame-ancestors 'self' {FRAME_ANCESTORS}")
 
 
 @app.middleware("http")
@@ -351,8 +354,12 @@ def opinion(data: OpinionIn, request: Request):
 
 
 @app.get("/")
-def index():
-    return FileResponse(WEB / "index.html", headers={"Cache-Control": "no-cache"})
+def index(embed: bool = False):
+    """Con ?embed=1 la página se adapta para vivir dentro de cleanlab.pe (sin cabecera propia y con alto natural)."""
+    page = (WEB / "index.html").read_text(encoding="utf-8")
+    if embed:
+        page = page.replace('<html lang="es">', '<html lang="es" class="embed">', 1)
+    return HTMLResponse(page, headers={"Cache-Control": "no-cache"})
 
 
 app.mount("/static", StaticFiles(directory=WEB), name="static")

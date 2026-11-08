@@ -138,3 +138,13 @@ legend { font-size: .9rem; margin-bottom: 6px; padding: 0; }
   .item img, .item .noimg { width: 64px; height: 64px; }
   .item .buy { grid-column: 1 / -1; text-align: center; }
 }
+
+/* Modo incrustado en cleanlab.pe: sin cabecera propia (la tienda ya tiene la suya), alto natural y sin
+   desplazamiento interno; el iframe crece con el contenido */
+html.embed { height: auto; }
+.embed body { height: auto; overflow: visible; padding: 4px 2px 12px; background: transparent; }
+.embed .hero { display: none; }
+.embed .layout { margin-top: 0; }
+.embed .panel { overflow: visible; padding-right: 0; }
+.embed .messages { flex: none; height: 520px; }
+@media (max-width: 900px) { .embed .messages { height: 440px; } }

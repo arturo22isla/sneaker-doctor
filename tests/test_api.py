@@ -91,3 +91,11 @@ def test_enlaces_externos_se_quitan_mientras_llega_la_respuesta():
     parts = ["Mira [la ", "guía](https://", "otro.com/x) y ", "https://cleanlab.pe/products/foam ok"]
     text = "".join(api.cleaned(iter(parts)))
     assert "otro.com" not in text and "la guía" in text and "https://cleanlab.pe/products/foam" in text
+
+
+def test_modo_incrustado_para_cleanlab(client):
+    normal, embed = client.get("/").text, client.get("/?embed=1").text
+    assert 'class="embed"' in embed and 'class="embed"' not in normal
+    csp = client.get("/?embed=1").headers["content-security-policy"]
+    for sitio in ("https://*.cleanlab.pe", "https://admin.shopify.com", "https://*.shopifypreview.com"):
+        assert sitio in csp  # la tienda y el editor de temas pueden mostrarla; otros sitios no

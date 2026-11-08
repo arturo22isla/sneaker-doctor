@@ -3,6 +3,9 @@
 "use strict";
 
 const $ = (s) => document.querySelector(s);
+// Modo incrustado (?embed=1): la página vive dentro de cleanlab.pe en un iframe
+const EMBED = document.documentElement.classList.contains("embed");
+const TARGET = EMBED ? `target="_top"` : `target="_blank" rel="noopener"`; // en la tienda, la compra sigue en la misma pestaña
 const MAX_PHOTO = 10 * 1024 * 1024;
 const SUGGESTIONS = {
   "Mancha de barro": "¿Cómo saco una mancha de barro?",
@@ -24,6 +27,8 @@ const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const safeUrl = (u) => (/^https:\/\//.test(u || "") ? u : "");
 
 function toast(text) {
+  // Dentro de la tienda el aviso lo muestra cleanlab.pe: el iframe es alto y un aviso fijo podría quedar fuera de la vista
+  if (EMBED && window.parent !== window) return window.parent.postMessage({ tipo: "sneaker-doctor:aviso", texto: String(text).slice(0, 200) }, "*");
   const t = $("#toast");
   t.textContent = text;
   t.hidden = false;
@@ -179,7 +184,7 @@ function card(i, removable) {
   const incl = i.contenido?.length ? `<div class="incl">Incluye: ${esc(i.contenido.join(", "))}</div>` : "";
   const before = i.precio_antes ? `<span class="before">${money(i.precio_antes)}</span>` : "";
   const why = i.porque ? `<details><summary>¿Por qué te lo recomendamos?</summary><p>${esc(i.porque)}</p></details>` : "";
-  const buy = safeUrl(i.url) ? `<a class="buy" href="${esc(i.url)}" target="_blank" rel="noopener">Comprar</a>` : "";
+  const buy = safeUrl(i.url) ? `<a class="buy" href="${esc(i.url)}" ${TARGET}>Comprar</a>` : "";
   const x = removable ? `<button type="button" class="remove" data-rm="${esc(i.sku)}" aria-label="Quitar ${esc(i.nombre)} del kit" title="Quitar del kit">✕</button>` : "";
   return `<div class="item">${x}${img}<div><div class="name">${esc(i.nombre)}</div>${incl}
     <div class="prices"><span class="now">${money(i.precio)}</span>${before}</div>${i.disponible ? "" : `<div class="out">Agotado</div>`}${why}</div>${buy}</div>`;
@@ -200,7 +205,7 @@ async function updateKit({ changed = false, note = "" } = {}) {
   kit.hidden = false;
   const alt = k.sueltos ? `<details class="alt"><summary>Prefiero comprar los productos sueltos (${money(k.sueltos.total)})</summary>
       <div class="list">${k.sueltos.items.map((i) => card(i, false)).join("")}</div>
-      ${safeUrl(k.sueltos.carrito) ? `<a class="cart" href="${esc(k.sueltos.carrito)}" target="_blank" rel="noopener">Agregar los sueltos al carrito</a>` : ""}</details>` : "";
+      ${safeUrl(k.sueltos.carrito) ? `<a class="cart" href="${esc(k.sueltos.carrito)}" ${TARGET}>Agregar los sueltos al carrito</a>` : ""}</details>` : "";
   const removed = k.quitados.length ? `<div class="removed"><h3>Quitaste de tu kit</h3><ul>${k.quitados.map((i) =>
       `<li><b>${esc(i.nombre)}</b> <button type="button" class="link" data-back="${esc(i.sku)}">Volver a agregar</button>
        ${i.porque ? `<span class="why">Te lo recomendamos porque: ${esc(i.porque)}</span>` : ""}</li>`).join("")}</ul></div>` : "";
@@ -209,7 +214,7 @@ async function updateKit({ changed = false, note = "" } = {}) {
     : `Precios de cleanlab.pe${k.precios.fecha ? ` al ${esc(k.precios.fecha)}` : ""}. Confírmalos en la tienda antes de comprar.`;
   kit.innerHTML = (k.items.length ? `<div class="list">${k.items.map((i) => card(i, true)).join("")}</div>
       <div class="total"><span>Total</span><span class="amount">${money(k.total)}</span>${k.badge ? `<span class="badge">${esc(k.badge)}</span>` : ""}</div>
-      ${safeUrl(k.carrito) ? `<a class="cart" href="${esc(k.carrito)}" target="_blank" rel="noopener">Agregar todo al carrito</a>` : ""}`
+      ${safeUrl(k.carrito) ? `<a class="cart" href="${esc(k.carrito)}" ${TARGET}>Agregar todo al carrito</a>` : ""}`
       : `<div class="empty">Quitaste todos los productos del kit.</div>`) + alt + removed + extra + `<p class="small">${prices}</p>`;
 
   // Chat: se reinicia con otra foto u otro material; con cambios en el kit, solo se avisa
@@ -317,7 +322,7 @@ async function send(question) {
     if (guia) addNote("Respuesta de la guía básica: el chat con IA no está disponible en este momento.");
     state.busy = false;
     renderMessages();
-    $("#question").focus();
+    $("#question").focus({ preventScroll: true }); // sin mover la página de la tienda
   }
 }
 
@@ -327,6 +332,17 @@ $("#ask").addEventListener("submit", (e) => {
   $("#question").value = "";
   send(q);
 });
+
+// ---------------- Modo incrustado: avisa a la tienda el alto del contenido ----------------
+if (EMBED && window.parent !== window) {
+  let last = 0;
+  const report = () => {
+    const height = Math.ceil(document.body.getBoundingClientRect().height); // alto real del contenido (no del iframe)
+    if (Math.abs(height - last) > 2) { last = height; window.parent.postMessage({ tipo: "sneaker-doctor:alto", alto: height }, "*"); }
+  };
+  new ResizeObserver(report).observe(document.body);
+  window.addEventListener("load", report);
+}
 
 // ---------------- Inicio ----------------
 (async () => {

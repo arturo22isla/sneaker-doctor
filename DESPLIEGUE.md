@@ -90,11 +90,18 @@ gcloud.cmd beta run domain-mappings create --service sneaker-doctor --domain doc
 Google pide verificar que el dominio es de Clean Lab (Search Console) y muestra un registro **CNAME** (`ghs.googlehosted.com`)
 para agregar donde se administra el DNS de cleanlab.pe. El certificado HTTPS se crea solo.
 
-También se puede mostrar dentro de la tienda: en Shopify **Tienda online → Páginas → Agregar página**, en modo HTML:
+## 6. Dentro de cleanlab.pe (cleanlab.pe/pages/sneaker-doctor)
 
-```html
-<iframe src="https://doctor.cleanlab.pe" title="Sneaker Doctor" style="width:100%;height:900px;border:0" allow="camera"></iframe>
-```
+La página se muestra en un iframe aislado con `?embed=1`: sin cabecera propia, con el alto del contenido y con los botones
+de compra abriendo el carrito en la misma pestaña de la tienda. Sus estilos y su código no se mezclan con los del tema.
+
+1. **Tienda online → Temas → Personalizar**. Arriba, en el selector de plantillas: **Páginas → Crear plantilla** → nombre `sneaker-doctor`.
+2. En la plantilla nueva: **Agregar sección → Liquid personalizado** (debajo de la sección de la página) y pega el contenido de
+   [`shopify/sneaker-doctor.liquid`](shopify/sneaker-doctor.liquid). **Guardar**.
+3. **Tienda online → Páginas → Agregar página**: título `Sneaker Doctor`, y a la derecha en **Plantilla** elige `sneaker-doctor`. Guardar.
+4. **Tienda online → Navegación**: agrega `Sneaker Doctor` al menú principal, enlazado a esa página.
+
+Si cambia la dirección del servicio (por ejemplo, al usar `doctor.cleanlab.pe`), actualiza las dos direcciones del archivo `.liquid`.
 
 ## Seguridad
 
@@ -110,4 +117,5 @@ También se puede mostrar dentro de la tienda: en Shopify **Tienda online → P�
 | Falsificar la IP para saltarse límites | Se usa la IP que agrega Google, no la que manda el navegador |
 | Ver detalles internos | Sin documentación pública de la API ni trazas de error; el contenedor corre sin permisos de administrador |
 | Costos inesperados | `--max-instances 3` y alerta de presupuesto |
+| Conflictos con la tienda | Iframe aislado (`sandbox`); la tienda solo acepta mensajes de alto y avisos del origen de Sneaker Doctor, como texto plano |
 | Privacidad (Ley 29733) | No se guardan fotos ni datos personales; las opiniones 👍/👎 se registran sin datos personales en Cloud Logging |
