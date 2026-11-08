@@ -113,7 +113,8 @@ async function handleFile(file) {
     state.photo64 = await toBase64(await shrink(file, 768, 0.85));
   } catch (_) { /* formato que el navegador no puede abrir: se envía tal cual */ }
   $("#preview").src = URL.createObjectURL(upload);
-  $("#empty").hidden = true;
+  $("#intro").hidden = true; // la portada da paso a la herramienta
+  $("#tool").hidden = false;
   $("#diagnosis").hidden = false;
   $("#result").innerHTML = `<div class="label">Revisando la foto…</div><div class="typing"><span></span><span></span><span></span></div>`;
   $("#notshoe").hidden = true;
@@ -153,10 +154,13 @@ async function diagnose() {
 }
 
 $("#file").addEventListener("change", (e) => handleFile(e.target.files[0]));
-const drop = $("#drop");
-drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
-drop.addEventListener("dragleave", () => drop.classList.remove("over"));
-drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("over"); handleFile(e.dataTransfer.files[0]); });
+// Se puede arrastrar la foto sobre la portada o sobre "Cambiar foto"
+for (const zone of [$("#drop"), $("#intro")]) {
+  zone.addEventListener("dragover", (e) => { e.preventDefault(); zone.classList.add("over"); });
+  zone.addEventListener("dragleave", () => zone.classList.remove("over"));
+  zone.addEventListener("drop", (e) => { e.preventDefault(); zone.classList.remove("over"); handleFile(e.dataTransfer.files[0]); });
+}
+$("#cta").addEventListener("click", () => $("#file").click());
 $("#force").addEventListener("click", () => { state.forced = true; $("#notshoe").hidden = true; diagnose(); });
 
 $("#feedback").addEventListener("click", async (e) => {
@@ -205,7 +209,7 @@ async function updateKit({ changed = false, note = "" } = {}) {
   kit.hidden = false;
   const alt = k.sueltos ? `<details class="alt"><summary>Prefiero comprar los productos sueltos (${money(k.sueltos.total)})</summary>
       <div class="list">${k.sueltos.items.map((i) => card(i, false)).join("")}</div>
-      ${safeUrl(k.sueltos.carrito) ? `<a class="cart" href="${esc(k.sueltos.carrito)}" ${TARGET}>Agregar los sueltos al carrito</a>` : ""}</details>` : "";
+      ${safeUrl(k.sueltos.carrito) ? `<a class="button cart" href="${esc(k.sueltos.carrito)}" ${TARGET}>Agregar los sueltos al carrito</a>` : ""}</details>` : "";
   const removed = k.quitados.length ? `<div class="removed"><h3>Quitaste de tu kit</h3><ul>${k.quitados.map((i) =>
       `<li><b>${esc(i.nombre)}</b> <button type="button" class="link" data-back="${esc(i.sku)}">Volver a agregar</button>
        ${i.porque ? `<span class="why">Te lo recomendamos porque: ${esc(i.porque)}</span>` : ""}</li>`).join("")}</ul></div>` : "";
@@ -214,7 +218,7 @@ async function updateKit({ changed = false, note = "" } = {}) {
     : `Precios de cleanlab.pe${k.precios.fecha ? ` al ${esc(k.precios.fecha)}` : ""}. Confírmalos en la tienda antes de comprar.`;
   kit.innerHTML = (k.items.length ? `<div class="list">${k.items.map((i) => card(i, true)).join("")}</div>
       <div class="total"><span>Total</span><span class="amount">${money(k.total)}</span>${k.badge ? `<span class="badge">${esc(k.badge)}</span>` : ""}</div>
-      ${safeUrl(k.carrito) ? `<a class="cart" href="${esc(k.carrito)}" ${TARGET}>Agregar todo al carrito</a>` : ""}`
+      ${safeUrl(k.carrito) ? `<a class="button cart" href="${esc(k.carrito)}" ${TARGET}>Agregar todo al carrito</a>` : ""}`
       : `<div class="empty">Quitaste todos los productos del kit.</div>`) + alt + removed + extra + `<p class="small">${prices}</p>`;
 
   // Chat: se reinicia con otra foto u otro material; con cambios en el kit, solo se avisa

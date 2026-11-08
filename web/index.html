@@ -8,7 +8,7 @@
   <link rel="icon" href="/assets/bot.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;800&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@500;600;800&display=swap">
   <link rel="stylesheet" href="/static/styles.css">
   <script src="/static/app.js" defer></script>
 </head>
@@ -21,23 +21,35 @@
     </div>
   </header>
 
-  <main class="layout">
+  <!-- Portada: invita a subir la foto. Se reemplaza por la herramienta al subirla -->
+  <section class="intro" id="intro" aria-labelledby="t-intro">
+    <div class="intro-text">
+      <span class="eyebrow">Nuevo · Gratis · Con IA</span>
+      <h2 id="t-intro">¿No sabes cómo limpiar tus zapatillas?</h2>
+      <p class="lead">Sube una foto y en segundos te decimos de qué material son, qué productos Clean Lab usar y cómo
+        limpiarlas paso a paso.</p>
+      <button type="button" class="button cta" id="cta">📸 Analizar mi zapatilla</button>
+      <p class="intro-hint">o arrástrala aquí · JPG, PNG o WEBP</p>
+      <ul class="perks">
+        <li>Gratis</li><li>Resultado en segundos</li><li>Kit al mejor precio</li><li>+30,000 clientes Clean Lab</li>
+      </ul>
+    </div>
+    <ol class="how">
+      <li><b>1</b><span><strong>Sube tu foto</strong>De costado, con buena luz y la zapatilla completa</span></li>
+      <li><b>2</b><span><strong>Detectamos el material</strong>Gamuza, cuero, lona o malla, con IA</span></li>
+      <li><b>3</b><span><strong>Recibe tu kit y la guía</strong>Productos Clean Lab y cómo usarlos, paso a paso</span></li>
+    </ol>
+  </section>
+
+  <main class="layout" id="tool" hidden>
     <!-- 1 y 2 · Foto y diagnóstico -->
     <section class="panel" aria-labelledby="t-foto">
-      <h2 class="step" id="t-foto">1 · Tu zapatilla</h2>
+      <h2 class="step" id="t-foto"><span class="num">1</span>Tu zapatilla</h2>
       <label class="drop" id="drop">
         <input type="file" id="file" accept="image/jpeg,image/png,image/webp" hidden>
-        <span class="drop-btn">Subir foto</span>
+        <span class="drop-btn">Cambiar foto</span>
         <span class="drop-hint">JPG, PNG o WEBP · hasta 10 MB</span>
       </label>
-      <p class="note">Tu foto se analiza para recomendarte productos y el chat la envía a Google Gemini para
-        responderte. No la guardamos. No compartas datos personales en el chat.</p>
-
-      <div class="empty" id="empty">
-        Sube una foto <b>de costado</b>, con buena luz y la zapatilla completa.
-        <div class="steps"><div><b>1</b>Sube tu foto</div><div><b>2</b>Detectamos el material</div>
-          <div><b>3</b>Recibe tu kit y cómo usarlo</div></div>
-      </div>
 
       <div id="diagnosis" hidden>
         <div class="diag">
@@ -58,7 +70,7 @@
             <button type="button" data-ok="1" aria-label="Sí, acertaron">👍</button>
             <button type="button" data-ok="0" aria-label="No, se equivocaron">👎</button>
           </div>
-          <h2 class="step">2 · Cuéntanos un poco más</h2>
+          <h2 class="step"><span class="num">2</span>Cuéntanos un poco más</h2>
           <fieldset>
             <legend>¿Cómo está la suela?</legend>
             <div class="chips" id="soles"></div>
@@ -69,11 +81,13 @@
           </fieldset>
         </div>
       </div>
+      <p class="note">Tu foto se analiza para recomendarte productos y el chat la envía a Google Gemini para
+        responderte. No la guardamos. No compartas datos personales en el chat.</p>
     </section>
 
     <!-- 3 · Kit -->
     <section class="panel" aria-labelledby="t-kit">
-      <h2 class="step" id="t-kit">3 · Tu kit Clean Lab</h2>
+      <h2 class="step" id="t-kit"><span class="num">3</span>Tu kit Clean Lab</h2>
       <div class="empty" id="kit-empty">Aquí aparecerán los productos Clean Lab indicados para tu zapatilla,
         con la opción de mejor precio.</div>
       <div id="kit" hidden aria-live="polite"></div>
@@ -81,7 +95,7 @@
 
     <!-- 4 · Chat -->
     <section class="panel chat" aria-labelledby="t-chat">
-      <h2 class="step" id="t-chat">4 · Pregúntale a Sneaker Doctor</h2>
+      <h2 class="step" id="t-chat"><span class="num">4</span>Pregúntale a Sneaker Doctor</h2>
       <div class="messages" id="messages" aria-live="polite"></div>
       <div class="chips suggestions" id="suggestions"></div>
       <form id="ask" class="ask" autocomplete="off">

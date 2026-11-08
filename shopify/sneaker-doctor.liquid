@@ -3,7 +3,7 @@
   Pegar en Tienda online → Temas → Personalizar → plantilla de página "sneaker-doctor" → sección "Liquid personalizado".
   La página de Sneaker Doctor se muestra en un iframe aislado: sus estilos y su código no se mezclan con los del tema.
 {% endcomment %}
-<div class="sneaker-doctor page-width">
+<div class="sneaker-doctor">
   <iframe
     id="sneaker-doctor-frame"
     src="https://sneaker-doctor-928770385966.us-central1.run.app/?embed=1"
@@ -15,10 +15,12 @@
 </div>
 
 <style>
-  .sneaker-doctor { margin-top: 1rem; margin-bottom: 3rem; }
+  /* Más ancho que el texto de la tienda (100rem): la herramienta tiene tres columnas */
+  .sneaker-doctor { max-width: 136rem; margin: 1rem auto 4rem; padding: 0 1.5rem; }
+  @media screen and (min-width: 750px) { .sneaker-doctor { padding: 0 5rem; } }
   .sneaker-doctor iframe { display: block; width: 100%; height: 900px; border: 0; transition: height .15s ease; }
   .sneaker-doctor__aviso { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 50;
-    background: #1B2E46; color: #fff; padding: 10px 16px; border-radius: 10px; font-size: 1.4rem;
+    background: #1B2E46; color: #fff; padding: 10px 16px; font-size: 1.4rem;
     max-width: calc(100% - 32px); }
 </style>
 
