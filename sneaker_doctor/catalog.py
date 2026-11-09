@@ -12,7 +12,7 @@ BASE_KIT = {
     "gamuza": ["LCLFP", "LCLKG", "PCLACP", "PCLPP"],  # + Kit de Gamuza (limpieza en seco) y Activador de Color
     "cuero": ["LCLFP", "PCLRP", "PCLPP"],             # + Renovador de cuero (no apto para gamuza)
     "lona": ["LCLFP", "PCLPP"],
-    "malla": ["LCLFP", "PCLPP"],
+    "malla": ["LCLFP", "LCLE41", "PCLPP"],            # + Cepillo 4 en 1 para ranuras e interior de la malla
 }
 
 # Productos para la suela según su estado (instrucciones de cleanlab.pe).

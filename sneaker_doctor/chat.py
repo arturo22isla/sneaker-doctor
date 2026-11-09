@@ -41,7 +41,7 @@ CARE_GUIDE = {
         PROTECT_STEP,
     ],
     "lona": FOAM_STEPS[:1] + ["Usa la escobilla de cerdas duras (Basic) para la lona."] + FOAM_STEPS[1:] + [PROTECT_STEP],
-    "malla": FOAM_STEPS[:1] + ["Usa la escobilla de cerdas suaves (Premium) para la malla."] + FOAM_STEPS[1:] + [PROTECT_STEP],
+    "malla": FOAM_STEPS[:1] + ["Usa la escobilla de cerdas suaves (Premium) para la malla y el Cepillo 4 en 1 para las ranuras."] + FOAM_STEPS[1:] + [PROTECT_STEP],
 }
 
 SOLE_GUIDE = {
@@ -75,8 +75,8 @@ MATERIAL_NOTES = {
                "El Renovador de Cuero NO se usa en gamuza ni nobuck."),
     "cuero": "El Renovador de Cuero es para cuero liso; no se usa en gamuza ni nobuck.",
     "lona": "Para lona sirve la Escobilla Basic de cerdas duras incluida en el Foam Pack.",
-    "malla": ("Para malla usa la Escobilla Premium de cerdas suaves del Foam Pack. Para el interior y las ranuras "
-              "está el Cepillo 4 en 1 (opción 'Limpieza por dentro')."),
+    "malla": ("Para malla usa la Escobilla Premium de cerdas suaves del Foam Pack y el Cepillo 4 en 1 para las ranuras "
+              "y el interior."),
 }
 
 HISTORY = 8  # mensajes previos que se envían al modelo: la conversación no crece sin límite

@@ -83,7 +83,7 @@ def test_zapatilla_mixta_junta_kits_sin_repetir():
     catalog = load_catalog()
     rec = recommend(["gamuza", "malla"], catalog)
     skus = [i["sku"] for i in rec["kit"]]
-    assert skus == ["LCLFP", "LCLKG", "PCLACP", "PCLPP"]  # el Foam Pack y el Protector aparecen una sola vez
+    assert skus == ["LCLFP", "LCLKG", "PCLACP", "PCLPP", "LCLE41"]  # el Foam Pack y el Protector aparecen una sola vez
     assert len(skus) == len(set(skus))
 
 
@@ -193,7 +193,8 @@ def test_foam_pack_en_todos_los_kits_y_limpieza_por_dentro():
         assert "LCLFP" in [i["sku"] for i in recommend(material, catalog)["kit"]]
     gamuza = [i["sku"] for i in recommend("gamuza", catalog)["kit"]]
     assert {"LCLKG", "PCLACP"} <= set(gamuza)
-    interior = recommend("malla", catalog, needs=["interior"])
+    assert "LCLE41" in [i["sku"] for i in recommend("malla", catalog)["kit"]]  # malla: Cepillo 4 en 1 siempre
+    interior = recommend("lona", catalog, needs=["interior"])
     assert [i["sku"] for i in interior["extras_kit"]] == ["LCLE41"]
 
 
