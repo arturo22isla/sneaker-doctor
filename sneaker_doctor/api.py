@@ -272,18 +272,18 @@ def kit(data: KitIn, request: Request):
     pack = rec["pack_option"]
     if pack:
         items = pack["packs"] + pack["sueltos"]
-        bonus = f" · el pack además trae {', '.join(pack['extras'])}" if pack["extras"] else ""
-        total, badge = pack["total"], f"Mejor precio: ahorras S/ {pack['ahorro']:.2f} frente a comprar suelto{bonus}"
+        gift = f"El pack además trae {', '.join(pack['extras'])}" if pack["extras"] else ""
+        total, badge = pack["total"], f"Ahorras S/ {pack['ahorro']:.2f} con el pack frente a comprar suelto"
         alternative = {"items": [view(i) for i in singles], "total": rec["total"],
                        "final": final_price(rec["total"]), "carrito": cart_url(singles)}
     else:
-        items, total, alternative = singles, rec["total"], None
+        items, total, alternative, gift = singles, rec["total"], None, ""
         badge = f"Ahorras S/ {rec['ahorro']:.2f} con las promociones de hoy" if rec["ahorro"] > 0 else ""
     extra = rec["extra"]
     paid = final_price(total)
     upgrade = next_tier(total)
     return {
-        "items": [view(i) for i in items], "total": round(total, 2), "badge": badge, "carrito": cart_url(items),
+        "items": [view(i) for i in items], "total": round(total, 2), "badge": badge, "regalo": gift, "carrito": cart_url(items),
         # Descuento por volumen y envío gratis de cleanlab.pe (se aplican al pagar)
         "volumen": {"porcentaje": round(volume_rate(total) * 100), "descuento": round(total - paid, 2), "pagas": paid,
                     "siguiente": {"falta": upgrade[0], "porcentaje": round(upgrade[1] * 100)} if upgrade else None},

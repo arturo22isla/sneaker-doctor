@@ -201,10 +201,16 @@ function totalBox(k) {
   const lines = v.porcentaje
     ? `<div class="row"><span>Subtotal</span><span>${money(k.total)}</span></div>
        <div class="row"><span>Descuento por volumen (${v.porcentaje} %)</span><span>−${money(v.descuento)}</span></div>` : "";
-  const next = v.siguiente && v.siguiente.falta <= 60 ? `<p class="hint">Agrega ${money(v.siguiente.falta)} más y llévate ${v.siguiente.porcentaje} % de descuento en todo tu pedido</p>` : "";
+  const save = k.badge ? `<p class="save">${esc(k.badge)}</p>` : "";
+  const gift = k.regalo ? `<p class="gift">🎁 ${esc(k.regalo)}</p>` : "";
+  // Siguiente escalón de descuento: barra de progreso (solo si está cerca)
+  const s = v.siguiente;
+  const next = s && s.falta <= 60
+    ? `<div class="progress"><p>Te faltan <b>${money(s.falta)}</b> para <b>${s.porcentaje} % de descuento</b></p>
+       <div class="ptrack"><div class="pfill" data-w="${Math.round((k.total / (k.total + s.falta)) * 100)}"></div></div></div>` : "";
+  const extras = save || gift || next ? `<div class="extras">${save}${gift}${next}</div>` : "";
   return `<div class="total">${lines}
-    <div class="row grand"><span>Total</span><span class="amount">${money(v.pagas)}</span></div>
-    ${k.badge ? `<p class="hint">${esc(k.badge)}</p>` : ""}${next}</div>`;
+    <div class="row grand"><span>Total</span><span class="amount">${money(v.pagas)}</span></div>${extras}</div>`;
 }
 function perks(k) {
   const ship = k.envio.gratis ? "Tu pedido tiene envío GRATIS" : `Te faltan ${money(k.envio.falta)} para envío GRATIS`;
@@ -238,6 +244,7 @@ async function updateKit({ changed = false, note = "" } = {}) {
       ${safeUrl(k.carrito) ? `<a class="button cart" href="${esc(k.carrito)}" ${TARGET}>Agregar todo al carrito</a>` : ""}
       ${perks(k)}`
       : `<div class="empty">Quitaste todos los productos del kit.</div>`) + alt + removed + extra + `<p class="small">${prices}</p>`;
+  kit.querySelectorAll(".pfill").forEach((f) => (f.style.width = `${Number(f.dataset.w)}%`)); // CSP: sin estilos en el HTML
 
   // Chat: se reinicia con otra foto u otro material; con cambios en el kit, solo se avisa
   const chatKey = `${state.fotoId}|${state.materials.join(",")}`;

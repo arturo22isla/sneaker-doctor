@@ -120,8 +120,15 @@ legend { font-size: 15px; font-weight: 600; margin-bottom: 8px; padding: 0; }
 .total .row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 14px; color: #D6E0EA; }
 .total .row.grand { color: #fff; font-size: 16px; margin-top: 2px; }
 .total .amount { font-size: 26px; font-weight: 800; }
-/* Mensajes de ahorro: letras amarillas sobre el azul marino */
-.total .hint { color: var(--yellow); font-weight: 700; font-size: 14px; margin: 6px 0 0; line-height: 1.4; }
+/* Ahorro y siguiente descuento: separados del total, con jerarquía (amarillo solo para lo importante) */
+.total .extras { border-top: 1px solid rgba(255, 255, 255, .15); margin-top: 10px; padding-top: 10px; display: grid; gap: 6px; }
+.total .extras p { margin: 0; line-height: 1.4; }
+.total .save { color: var(--yellow); font-weight: 600; font-size: 14px; }
+.total .gift { color: #D6E0EA; font-size: 13px; }
+.total .progress p { color: #D6E0EA; font-size: 13px; }
+.total .progress b { color: #fff; font-weight: 700; }
+.ptrack { height: 6px; background: rgba(255, 255, 255, .15); margin-top: 6px; }
+.pfill { height: 100%; background: var(--yellow); width: 0; transition: width .4s ease; }
 .store-perks { list-style: none; padding: 0; margin: 10px 0 0; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; color: var(--navy); }
 .store-perks li::before { content: "✓"; font-weight: 800; margin-right: 6px; }
 .badge { background: var(--yellow); color: var(--navy); font-weight: 700; padding: 2px 10px; font-size: 13px; }
