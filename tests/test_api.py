@@ -134,12 +134,14 @@ def test_agregar_productos_y_sugerencias(client):
 
 def test_chat_agrega_productos_solo_con_codigos_validos(client, monkeypatch):
     def fake(*a, **kw):
-        yield "Listo, agregué las Hormas. [[agre"
+        yield "Listo, agregué las Hormas Premium [PCL"
+        yield "HP]. [[agre"
         yield "gar:PCLHP]] [[agregar:INVENTADO]]"
     monkeypatch.setattr(api.chat, "answer_stream", fake)
     r = client.post("/api/chat", json={"materiales": ["lona"], "pregunta": "agrégame hormas", "sesion": "abc12345-0000"})
     text, _, acciones = r.text.partition("\u0002")
-    assert "[[" not in text and json.loads(acciones) == [{"accion": "agregar", "sku": "PCLHP"}]
+    assert "[[" not in text and "PCLHP" not in text and "Hormas Premium." in text
+    assert json.loads(acciones) == [{"accion": "agregar", "sku": "PCLHP"}]
 
 
 def test_conversacion_se_guarda_sin_datos_personales(client, monkeypatch, caplog):

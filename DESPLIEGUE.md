@@ -103,6 +103,26 @@ de compra abriendo el carrito en la misma pestaña de la tienda. Sus estilos y s
 
 Si cambia la dirección del servicio (por ejemplo, al usar `doctor.cleanlab.pe`), actualiza las dos direcciones del archivo `.liquid`.
 
+## 7. Conversaciones del chat en BigQuery (1 año)
+
+Cada pregunta y respuesta se registra sin datos personales (correos, celulares, DNI y tarjetas se reemplazan por
+`[correo]`, `[teléfono]`, `[dni]`, `[tarjeta]`), con un código anónimo por visita, el material, la suela, el kit y los
+productos que el cliente pidió agregar o quitar. No se guarda la IP ni la foto.
+
+Cloud Logging las envía al dataset `sneaker_doctor`, que borra cada día de datos a los 365 días:
+
+```bash
+bq.cmd mk --dataset --location=US --default_partition_expiration=31536000 TU-PROYECTO:sneaker_doctor
+```
+```bash
+gcloud.cmd logging sinks create sneaker-doctor-chat bigquery.googleapis.com/projects/TU-PROYECTO/datasets/sneaker_doctor --log-filter="resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"sneaker-doctor\" AND jsonPayload.evento=\"chat\"" --use-partitioned-tables --project TU-PROYECTO
+```
+
+Después hay que dar a la cuenta que indica el comando (`service-NUMERO@gcp-sa-logging...`) el rol de escritura **solo**
+sobre el dataset `sneaker_doctor` (BigQuery → dataset → Compartir → Agregar principal → Editor de datos de BigQuery).
+
+Para verlas: BigQuery → `sneaker_doctor` → tabla `run_googleapis_com_stderr` (columna `jsonPayload`).
+
 ## Seguridad
 
 | Riesgo | Cómo está cubierto |

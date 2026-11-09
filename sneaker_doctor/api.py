@@ -318,6 +318,7 @@ class ChatIn(KitIn):
 
 
 ACTION = re.compile(r"\[\[(agregar|quitar):([A-Z0-9-]{2,20})\]\]")
+CODE = re.compile(r" ?\[[A-Z]{2,}[A-Z0-9-]*\]")  # códigos internos como [PCLHP]: el cliente no necesita verlos
 
 
 def actions(stream, found: list, valid: set):
@@ -326,15 +327,15 @@ def actions(stream, found: list, valid: set):
     buf = ""
     for chunk in stream:
         buf += chunk
-        if "[[" in buf and "]]" not in buf[buf.rfind("[["):]:
-            continue  # etiqueta incompleta: esperar la siguiente parte
+        if buf.rfind("[") > buf.rfind("]"):
+            continue  # etiqueta o código a medias: esperar la siguiente parte
         for verb, sku in ACTION.findall(buf):
             if sku in valid and (verb, sku) not in found:
                 found.append((verb, sku))
-        yield ACTION.sub("", buf)
+        yield CODE.sub("", ACTION.sub("", buf))
         buf = ""
     if buf:
-        yield ACTION.sub("", buf)
+        yield CODE.sub("", ACTION.sub("", buf))
 
 
 def cleaned(stream):
