@@ -32,9 +32,9 @@ from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel, Field, StringConstraints
 
 from sneaker_doctor import MATERIALS, chat, config, feedback, vision
-from sneaker_doctor.catalog import (EXTRA_NEEDS, FREE_SHIPPING, SOLE_STATES, VOLUME_TIERS, cart_url, final_price,
+from sneaker_doctor.catalog import (EXTRA_NEEDS, FREE_SHIPPING, SOLE_STATES, VOLUME_TIERS, cart_url, final_price, item,
                                     load_catalog, load_co_purchase, next_tier, product_url, reason, recommend,
-                                    refresh_from_web, volume_rate)
+                                    refresh_from_web, suggestions, volume_rate)
 from sneaker_doctor.web_catalog import fetch_products, to_rows
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -205,12 +205,14 @@ class KitIn(BaseModel):
     suela: Sole = "normal"
     necesidades: list[Need] = Field(default_factory=list, max_length=len(EXTRA_NEEDS))
     quitados: list[Sku] = Field(default_factory=list, max_length=30)
+    agregados: list[Sku] = Field(default_factory=list, max_length=10)
 
 
 def build_kit(data: KitIn, catalog, co_purchase):
     removed = {s for s in data.quitados if s in catalog.index}
+    added = [s for s in data.agregados if s in catalog.index and s not in removed]
     rec = recommend(list(dict.fromkeys(data.materiales)), catalog, co_purchase, data.suela,
-                    list(dict.fromkeys(data.necesidades)), removed)
+                    list(dict.fromkeys(data.necesidades)), removed, added)
     for group in ("kit", "sole_kit", "extras_kit"):
         for i in rec[group]:
             i["porque"] = reason(i["sku"], catalog)
@@ -282,11 +284,19 @@ def kit(data: KitIn, request: Request):
     extra = rec["extra"]
     paid = final_price(total)
     upgrade = next_tier(total)
+    # Para llegar al siguiente descuento: productos sugeridos y lo que se pagaría con cada uno
+    in_kit = {i["sku"] for i in singles} | {i["sku"] for i in items} | set(data.quitados)
+    suggested = []
+    if upgrade and upgrade[0] <= 60:
+        for s in suggestions(catalog, in_kit, upgrade[0]):
+            i = {**item(catalog, s), "porque": reason(s, catalog)}
+            suggested.append({**view(i), "pagarias": final_price(total + i["precio"])})
     return {
         "items": [view(i) for i in items], "total": round(total, 2), "badge": badge, "regalo": gift, "carrito": cart_url(items),
         # Descuento por volumen y envío gratis de cleanlab.pe (se aplican al pagar)
         "volumen": {"porcentaje": round(volume_rate(total) * 100), "descuento": round(total - paid, 2), "pagas": paid,
-                    "siguiente": {"falta": upgrade[0], "porcentaje": round(upgrade[1] * 100)} if upgrade else None},
+                    "siguiente": {"falta": upgrade[0], "porcentaje": round(upgrade[1] * 100)} if upgrade else None,
+                    "sugeridos": suggested},
         "envio": {"gratis": paid >= FREE_SHIPPING, "desde": FREE_SHIPPING, "falta": round(max(0, FREE_SHIPPING - paid), 2)},
         "sueltos": alternative, "quitados": [view(i) for i in rec["removed"]],
         "extra": {"nombre": extra["nombre"], "precio": extra["precio"], "url": product_url(extra)} if extra else None,
@@ -304,6 +314,27 @@ class ChatIn(KitIn):
     pregunta: str = Field(min_length=1, max_length=chat.QUESTION_MAX)
     historial: list[Message] = Field(default_factory=list, max_length=40)
     foto: str | None = Field(default=None, max_length=MAX_CHAT_PHOTO * 4 // 3 + 4)  # JPEG en base64
+    sesion: str | None = Field(default=None, pattern=r"^[0-9a-f-]{8,40}$")  # código anónimo de la visita
+
+
+ACTION = re.compile(r"\[\[(agregar|quitar):([A-Z0-9-]{2,20})\]\]")
+
+
+def actions(stream, found: list, valid: set):
+    """Saca de la respuesta las etiquetas [[agregar:SKU]] / [[quitar:SKU]] y guarda las acciones válidas.
+    Retiene el texto mientras una etiqueta llega a medias."""
+    buf = ""
+    for chunk in stream:
+        buf += chunk
+        if "[[" in buf and "]]" not in buf[buf.rfind("[["):]:
+            continue  # etiqueta incompleta: esperar la siguiente parte
+        for verb, sku in ACTION.findall(buf):
+            if sku in valid and (verb, sku) not in found:
+                found.append((verb, sku))
+        yield ACTION.sub("", buf)
+        buf = ""
+    if buf:
+        yield ACTION.sub("", buf)
 
 
 def cleaned(stream):
@@ -337,27 +368,40 @@ def ask(data: ChatIn, request: Request):
     catalog, _ = store.get()
     rec = build_kit(data, catalog, store.co_purchase)
     chosen = rec["kit"] + rec["sole_kit"] + rec["extras_kit"]
-    products = [f"{i['nombre']} (S/ {i['precio']:.2f}). Por qué está en su kit: {i['porque']} "
+    products = [f"{i['nombre']} [{i['sku']}] (S/ {i['precio']:.2f}). Está en su kit porque: {i['porque']} "
                 f"Modo de uso: {i['instrucciones'][:700] or 'ver la web'}" for i in chosen]
     if rec["pack_option"]:
-        products += [f"{p['nombre']} (S/ {p['precio']:.2f}), incluye: {', '.join(p['contenido'])}"
+        products += [f"{p['nombre']} [{p['sku']}] (S/ {p['precio']:.2f}), incluye: {', '.join(p['contenido'])}"
                      for p in rec["pack_option"]["packs"]]
     # Catálogo completo (nombre y precio): así el chat sabe todo lo que vende Clean Lab, aunque no esté en el kit
     in_kit = {i["sku"] for i in chosen} | set(data.quitados)
-    products += [f"{r.nombre} (S/ {r.precio:.2f})" for r in catalog[catalog["disponible"]].drop_duplicates("nombre").itertuples()
-                 if r.Index not in in_kit]
+    available = catalog[catalog["disponible"]].drop_duplicates("nombre")
+    products += [f"{r.nombre} [{r.Index}] (S/ {r.precio:.2f})" for r in available.itertuples() if r.Index not in in_kit]
+    valid = set(available.index) | {i["sku"] for i in chosen}  # códigos que el chat puede agregar o quitar
     tiers = ", ".join(f"desde S/ {m} ahorra {round(r * 100)} %" for m, r in sorted(VOLUME_TIERS))
     products.append(f"Promociones de cleanlab.pe: descuento por volumen al pagar ({tiers}); envío GRATIS desde "
                     f"S/ {FREE_SHIPPING}; recojo en tienda gratis; compras seguras.")
     removed = [f"{i['nombre']}. Por qué se lo recomendamos: {i['porque']}" for i in rec["removed"]]
     history = [{"role": m.rol, "content": m.texto} for m in data.historial][-chat.HISTORY:]
     meta: dict = {}
+    found: list = []
 
     def stream():
-        yield from cleaned(chat.answer_stream(data.materiales, data.pregunta, products, history, data.suela,
-                                              photo, meta, removed))
+        reply = []
+        for part in cleaned(actions(chat.answer_stream(data.materiales, data.pregunta, products, history, data.suela,
+                                                       photo, meta, removed), found, valid)):
+            reply.append(part)
+            yield part
+        if found:  # la página aplica los cambios al kit
+            yield "\u0002" + json.dumps([{"accion": v, "sku": s} for v, s in found])
         if meta.get("source") == "guia":
             yield "\u0000guia"  # la página muestra "respuesta de la guía básica"
+        # Conversación guardada sin datos personales (Cloud Logging → BigQuery, 1 año)
+        log.info(json.dumps({"severity": "INFO", "evento": "chat", "sesion": data.sesion or "",
+                             "pregunta": chat.redact(data.pregunta), "respuesta": chat.redact("".join(reply))[:4000],
+                             "materiales": data.materiales, "suela": data.suela, "necesidades": data.necesidades,
+                             "kit": sorted({i["sku"] for i in chosen}), "acciones": [f"{v}:{s}" for v, s in found],
+                             "fuente": meta.get("source", "")}, ensure_ascii=False))
 
     return StreamingResponse(stream(), media_type="text/plain; charset=utf-8",
                              headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"})

@@ -1,4 +1,5 @@
 """Catálogo de Clean Lab y kit recomendado por material."""
+from decimal import ROUND_HALF_UP, Decimal
 from urllib.parse import urlencode
 
 import pandas as pd
@@ -45,14 +46,28 @@ VOLUME_TIERS = [(349, 0.20), (219, 0.15), (169, 0.10)]  # compra desde S/ X y ah
 FREE_SHIPPING = 69                                       # envío gratis desde S/ 69
 
 
+# Productos que se sugieren para llegar al siguiente descuento: sirven para cualquier zapatilla
+SUGGESTIBLE = ["PCLHP", "PCLEO", "PCLSG", "PCLSP", "LCLE41", "ACLPP2"]
+
+
+def suggestions(catalog: pd.DataFrame, in_kit: set[str], missing: float, limit: int = 2) -> list[str]:
+    """Productos que por sí solos completan el siguiente escalón de descuento, el más barato primero.
+    Si ninguno alcanza, no se sugiere nada (sugerir algo que no llega al descuento sería engañoso)."""
+    options = [s for s in SUGGESTIBLE if s in catalog.index and s not in in_kit and bool(catalog.loc[s, "disponible"])]
+    return sorted((s for s in options if catalog.loc[s, "precio"] >= missing), key=lambda s: catalog.loc[s, "precio"])[:limit]
+
+
 def volume_rate(subtotal: float) -> float:
     """Descuento por volumen que aplica la tienda al pagar, según el subtotal."""
     return next((rate for minimum, rate in VOLUME_TIERS if subtotal >= minimum), 0.0)
 
 
 def final_price(subtotal: float) -> float:
-    """Lo que paga el cliente después del descuento por volumen."""
-    return round(subtotal * (1 - volume_rate(subtotal)), 2)
+    """Lo que paga el cliente después del descuento por volumen (como la tienda: descuento redondeado al céntimo)."""
+    cent = Decimal("0.01")
+    amount = Decimal(str(subtotal)).quantize(cent, ROUND_HALF_UP)  # 169.80 + 49.90 = 219.70000000000002 → 219.70
+    discount = (amount * Decimal(str(volume_rate(float(amount))))).quantize(cent, ROUND_HALF_UP)  # 32.955 → 32.96
+    return float(amount - discount)
 
 
 def next_tier(subtotal: float):
@@ -149,7 +164,7 @@ def reason(sku: str, catalog: pd.DataFrame) -> str:
 
 
 def recommend(materials, catalog: pd.DataFrame, co_purchase: pd.DataFrame | None = None,
-              sole: str | None = None, needs: list[str] | None = None, removed=None) -> dict:
+              sole: str | None = None, needs: list[str] | None = None, removed=None, added=None) -> dict:
     """Kit para uno o varios materiales (sin repetir productos), productos para la suela
     según su estado, complementos según necesidades (arrugas, olor…), la opción más barata
     con packs y, si hay datos de pedidos, el producto que más se compra junto.
@@ -166,6 +181,9 @@ def recommend(materials, catalog: pd.DataFrame, co_purchase: pd.DataFrame | None
     for need in needs or []:
         extras_kit += [s for s in EXTRA_NEEDS.get(need, ("", []))[1]
                        if s in catalog.index and s not in kit + sole_kit + extras_kit]
+    # Productos que el cliente agregó (con el botón "+ Agregar" o pidiéndolo en el chat)
+    extras_kit += [s for s in dict.fromkeys(added or []) if s in catalog.index and s not in PACKS
+                   and s not in kit + sole_kit + extras_kit]
     extra = None
     if co_purchase is not None and not co_purchase.empty:
         cand = co_purchase[co_purchase["sku"].isin(kit) & ~co_purchase["also_sku"].isin(kit + sole_kit + extras_kit)]

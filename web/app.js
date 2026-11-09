@@ -15,7 +15,11 @@ const SUGGESTIONS = {
 };
 const HELLO = "¡Hola! Sube una foto de tu zapatilla y te explico paso a paso cómo limpiarla con productos Clean Lab.";
 
+// Código anónimo de la visita: agrupa las preguntas de una conversación sin identificar a la persona
+const SESSION = (crypto.randomUUID && crypto.randomUUID()) || `${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 10)}`;
+
 const state = {
+  agregados: [],
   opts: null, fotoId: null, photo64: null, ranking: [], materials: [], suela: "normal", needs: [], quitados: [],
   forced: false, file: null, kit: null, chatKey: "", kitKey: "", messages: [], asked: 0, busy: false, rated: false,
 };
@@ -105,7 +109,7 @@ function renderOptions() {
 async function handleFile(file) {
   if (!file) return;
   if (file.size > MAX_PHOTO) return toast("La foto pesa más de 10 MB.");
-  state.file = file; state.forced = false; state.rated = false; state.quitados = [];
+  state.file = file; state.forced = false; state.rated = false; state.quitados = []; state.agregados = [];
   let upload = file;
   state.photo64 = null;
   try {
@@ -201,16 +205,24 @@ function totalBox(k) {
   const lines = v.porcentaje
     ? `<div class="row"><span>Subtotal</span><span>${money(k.total)}</span></div>
        <div class="row"><span>Descuento por volumen (${v.porcentaje} %)</span><span>−${money(v.descuento)}</span></div>` : "";
-  const save = k.badge ? `<p class="save">${esc(k.badge)}</p>` : "";
-  const gift = k.regalo ? `<p class="gift">🎁 ${esc(k.regalo)}</p>` : "";
-  // Siguiente escalón de descuento: barra de progreso (solo si está cerca)
-  const s = v.siguiente;
-  const next = s && s.falta <= 60
-    ? `<div class="progress"><p>Te faltan <b>${money(s.falta)}</b> para <b>${s.porcentaje} % de descuento</b></p>
-       <div class="ptrack"><div class="pfill" data-w="${Math.round((k.total / (k.total + s.falta)) * 100)}"></div></div></div>` : "";
-  const extras = save || gift || next ? `<div class="extras">${save}${gift}${next}</div>` : "";
   return `<div class="total">${lines}
-    <div class="row grand"><span>Total</span><span class="amount">${money(v.pagas)}</span></div>${extras}</div>`;
+    <div class="row grand"><span>Total</span><span class="amount">${money(v.pagas)}</span></div></div>${savings(k)}`;
+}
+function savings(k) {
+  const v = k.volumen, s = v.siguiente;
+  const save = k.badge ? `<p class="save">✓ ${esc(k.badge)}</p>` : "";
+  const gift = k.regalo ? `<p class="gift">🎁 ${esc(k.regalo)}</p>` : "";
+  let next = "";
+  if (s && v.sugeridos.length) {
+    // Siguiente escalón de descuento: barra de progreso y productos que lo completan, con botón para agregarlos
+    const options = v.sugeridos.map((i) => `<li><span><b>${esc(i.nombre)}</b> · ${money(i.precio)}
+        <small>Con este pagas ${money(i.pagarias)} en total</small></span>
+        <button type="button" class="add" data-add="${esc(i.sku)}" aria-label="Agregar ${esc(i.nombre)} al kit">+ Agregar</button></li>`).join("");
+    next = `<div class="progress"><p>Te faltan <b>${money(s.falta)}</b> para <b>${s.porcentaje} % de descuento</b> en todo tu pedido</p>
+      <div class="ptrack"><div class="pfill" data-w="${Math.round((k.total / (k.total + s.falta)) * 100)}"></div></div>
+      <ul class="upsell">${options}</ul></div>`;
+  }
+  return save || gift || next ? `<div class="savings">${save}${gift}${next}</div>` : "";
 }
 function perks(k) {
   const ship = k.envio.gratis ? "Tu pedido tiene envío GRATIS" : `Te faltan ${money(k.envio.falta)} para envío GRATIS`;
@@ -266,10 +278,16 @@ async function updateKit({ changed = false, note = "" } = {}) {
 }
 
 $("#kit").addEventListener("click", (e) => {
-  const rm = e.target.closest("[data-rm]"), back = e.target.closest("[data-back]");
-  if (rm) {
+  const rm = e.target.closest("[data-rm]"), back = e.target.closest("[data-back]"), add = e.target.closest("[data-add]");
+  if (add) {
+    const item = state.kit.volumen.sugeridos.find((i) => i.sku === add.dataset.add);
+    addProduct(add.dataset.add);
+    updateKit({ note: item ? `Agregué **${item.nombre}** a tu kit. ${item.porque}` : "" });
+  } else if (rm) {
     const item = state.kit.items.find((i) => i.sku === rm.dataset.rm);
-    state.quitados.push(rm.dataset.rm);
+    const added = state.agregados.includes(rm.dataset.rm);
+    removeProduct(rm.dataset.rm);
+    if (added) return updateKit({ note: item ? `Quité **${item.nombre}** de tu kit.` : "" });
     updateKit({ note: item ? `Quitaste **${item.nombre}** de tu kit.${item.porque ? ` Te lo recomendamos porque: ${item.porque}` : ""} Si cambias de opinión, puedes volver a agregarlo.` : "" });
   } else if (back) {
     state.quitados = state.quitados.filter((s) => s !== back.dataset.back);
@@ -277,7 +295,18 @@ $("#kit").addEventListener("click", (e) => {
   }
 });
 
-const kitBody = () => ({ materiales: state.materials, suela: state.suela, necesidades: state.needs, quitados: state.quitados });
+const kitBody = () => ({ materiales: state.materials, suela: state.suela, necesidades: state.needs, quitados: state.quitados,
+  agregados: state.agregados });
+
+// Agregar o quitar un producto (botones del kit o pedido en el chat)
+function addProduct(sku) {
+  state.quitados = state.quitados.filter((s) => s !== sku);
+  if (!state.agregados.includes(sku)) state.agregados.push(sku);
+}
+function removeProduct(sku) {
+  if (state.agregados.includes(sku)) state.agregados = state.agregados.filter((s) => s !== sku);
+  else if (!state.quitados.includes(sku)) state.quitados.push(sku);
+}
 
 // ---------------- 4 · Chat ----------------
 const chatReady = () => Boolean(state.kit) && !state.busy && state.asked < (state.opts?.max_preguntas ?? 20);
@@ -313,10 +342,10 @@ async function send(question) {
   state.busy = true;
   const typing = `<div class="msg assistant"><img src="/assets/bot.png" alt=""><div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div></div>`;
   renderMessages(typing);
-  let target = "", shown = 0, done = false, failed = false, guia = false;
+  let target = "", raw = "", shown = 0, done = false, failed = false, guia = false;
   const reply = { rol: "assistant", texto: "" };
   try {
-    const res = await postJSON("/api/chat", { ...kitBody(), pregunta: question, historial, foto: state.photo64 });
+    const res = await postJSON("/api/chat", { ...kitBody(), pregunta: question, historial, foto: state.photo64, sesion: SESSION });
     state.asked += 1;
     const reader = res.body.getReader(), decoder = new TextDecoder();
     // Efecto de escritura: el texto recibido se muestra de a pocos caracteres (con un temporizador, no depende de la animación)
@@ -334,8 +363,10 @@ async function send(question) {
     for (;;) {
       const { value, done: end } = await reader.read();
       if (end) break;
-      target += decoder.decode(value, { stream: true });
-      if (target.includes("\u0000guia")) { guia = true; target = target.replace("\u0000guia", ""); }
+      raw += decoder.decode(value, { stream: true });
+      // Al final pueden llegar marcas: \u0002 = productos para agregar o quitar, \u0000guia = respuesta de respaldo
+      if (raw.includes("\u0000guia")) guia = true;
+      target = raw.split("\u0002")[0].replace("\u0000guia", "");
     }
     done = true;
   } catch (e) {
@@ -350,6 +381,12 @@ async function send(question) {
     if (!state.messages.includes(reply)) state.messages.push(reply);
     if (guia) addNote("Respuesta de la guía básica: el chat con IA no está disponible en este momento.");
     state.busy = false;
+    let todo = [];
+    try { todo = JSON.parse((raw.split("\u0002")[1] || "[]").replace("\u0000guia", "")); } catch (_) { /* sin cambios */ }
+    if (todo.length) {
+      for (const a of todo) (a.accion === "agregar" ? addProduct : removeProduct)(a.sku);
+      return updateKit({ changed: true });
+    }
     renderMessages();
     $("#question").focus({ preventScroll: true }); // sin mover la página de la tienda
   }

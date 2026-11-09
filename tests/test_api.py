@@ -1,3 +1,4 @@
+import json
 import io
 
 import pytest
@@ -121,3 +122,29 @@ def test_modo_incrustado_para_cleanlab(client):
     for sitio in ("https://*.cleanlab.pe", "https://cleanlab-pe.myshopify.com", "https://admin.shopify.com", "https://*.shopifyapps.com"):
         assert sitio in csp  # la tienda y el editor de temas pueden mostrarla
     assert "*.myshopify.com" not in csp and "shopifypreview" not in csp  # otras tiendas de Shopify no
+
+
+def test_agregar_productos_y_sugerencias(client):
+    base = client.post("/api/kit", json={"materiales": ["lona"]}).json()
+    con_hormas = client.post("/api/kit", json={"materiales": ["lona"], "agregados": ["PCLHP"]}).json()
+    assert "PCLHP" in {i["sku"] for i in con_hormas["items"]} and con_hormas["total"] > base["total"]
+    for s in base["volumen"]["sugeridos"]:
+        assert s["sku"] not in {i["sku"] for i in base["items"]} and s["pagarias"] > 0
+
+
+def test_chat_agrega_productos_solo_con_codigos_validos(client, monkeypatch):
+    def fake(*a, **kw):
+        yield "Listo, agregué las Hormas. [[agre"
+        yield "gar:PCLHP]] [[agregar:INVENTADO]]"
+    monkeypatch.setattr(api.chat, "answer_stream", fake)
+    r = client.post("/api/chat", json={"materiales": ["lona"], "pregunta": "agrégame hormas", "sesion": "abc12345-0000"})
+    text, _, acciones = r.text.partition("\u0002")
+    assert "[[" not in text and json.loads(acciones) == [{"accion": "agregar", "sku": "PCLHP"}]
+
+
+def test_conversacion_se_guarda_sin_datos_personales(client, monkeypatch, caplog):
+    monkeypatch.setattr(api.chat, "answer_stream", lambda *a, **kw: iter(["Claro."]))
+    with caplog.at_level("INFO", logger="sneaker_doctor"):
+        client.post("/api/chat", json={"materiales": ["lona"], "pregunta": "Mi correo es ana@mail.com y cel 987654321"})
+    saved = [json.loads(r.message) for r in caplog.records if '"evento": "chat"' in r.message]
+    assert saved and "ana@mail.com" not in saved[0]["pregunta"] and "987654321" not in saved[0]["pregunta"]
