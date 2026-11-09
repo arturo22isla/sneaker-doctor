@@ -142,7 +142,9 @@ async function diagnose() {
   const title = state.materials.length === 1 ? cap(state.materials[0]) : `${cap(state.materials[0])} y ${state.materials[1]}`;
   const bars = state.ranking.slice(0, 3).map((r) =>
     `<div class="bar"><span>${esc(cap(r.material))}</span><div class="track"><div class="fill" data-w="${Math.round(r.prob * 100)}"></div></div></div>`).join("");
-  $("#result").innerHTML = `<div class="label">Material detectado</div><div class="value">${esc(title)}</div>${bars}` +
+  const changed = data.verificado && state.ranking.length && state.ranking[0].material !== state.materials[0];
+  $("#result").innerHTML = `<div class="label">Material detectado</div><div class="value">${esc(title)}</div>` +
+    (changed ? `<div class="label">Confirmado con IA mirando tu foto</div>` : bars) +
     (data.incierto ? `<div class="warn">No estoy seguro del material. Revisa la sugerencia y corrígela si hace falta.</div>` : "");
   // El ancho se fija desde JavaScript: la política de seguridad (CSP) no permite estilos escritos en el HTML
   $("#result").querySelectorAll(".fill").forEach((f) => (f.style.width = `${Number(f.dataset.w)}%`));
@@ -194,6 +196,21 @@ function card(i, removable) {
     <div class="prices"><span class="now">${money(i.precio)}</span>${before}</div>${i.disponible ? "" : `<div class="out">Agotado</div>`}${why}</div>${buy}</div>`;
 }
 
+function totalBox(k) {
+  const v = k.volumen;
+  const lines = v.porcentaje
+    ? `<div class="row"><span>Subtotal</span><span>${money(k.total)}</span></div>
+       <div class="row"><span>Descuento por volumen (${v.porcentaje} %)</span><span>−${money(v.descuento)}</span></div>` : "";
+  const next = v.siguiente && v.siguiente.falta <= 60 ? `<p class="hint">Agrega ${money(v.siguiente.falta)} más y llévate ${v.siguiente.porcentaje} % de descuento en todo tu pedido</p>` : "";
+  return `<div class="total">${lines}
+    <div class="row grand"><span>Total</span><span class="amount">${money(v.pagas)}</span></div>
+    ${k.badge ? `<p class="hint">${esc(k.badge)}</p>` : ""}${next}</div>`;
+}
+function perks(k) {
+  const ship = k.envio.gratis ? "Tu pedido tiene envío GRATIS" : `Te faltan ${money(k.envio.falta)} para envío GRATIS`;
+  return `<ul class="store-perks"><li>${ship}</li><li>Compras seguras</li><li>Recojo en tienda GRATIS</li></ul>`;
+}
+
 let kitRequest = 0;
 async function updateKit({ changed = false, note = "" } = {}) {
   if (!state.materials.length) return resetKit("Elige al menos un material.");
@@ -207,7 +224,7 @@ async function updateKit({ changed = false, note = "" } = {}) {
   $("#kit-empty").hidden = true;
   const kit = $("#kit");
   kit.hidden = false;
-  const alt = k.sueltos ? `<details class="alt"><summary>Prefiero comprar los productos sueltos (${money(k.sueltos.total)})</summary>
+  const alt = k.sueltos ? `<details class="alt"><summary>Prefiero comprar los productos sueltos (${money(k.sueltos.final)}${k.sueltos.final < k.sueltos.total ? " con descuento por volumen" : ""})</summary>
       <div class="list">${k.sueltos.items.map((i) => card(i, false)).join("")}</div>
       ${safeUrl(k.sueltos.carrito) ? `<a class="button cart" href="${esc(k.sueltos.carrito)}" ${TARGET}>Agregar los sueltos al carrito</a>` : ""}</details>` : "";
   const removed = k.quitados.length ? `<div class="removed"><h3>Quitaste de tu kit</h3><ul>${k.quitados.map((i) =>
@@ -217,8 +234,9 @@ async function updateKit({ changed = false, note = "" } = {}) {
   const prices = k.precios.en_vivo ? "Precios, promociones e imágenes en vivo de cleanlab.pe."
     : `Precios de cleanlab.pe${k.precios.fecha ? ` al ${esc(k.precios.fecha)}` : ""}. Confírmalos en la tienda antes de comprar.`;
   kit.innerHTML = (k.items.length ? `<div class="list">${k.items.map((i) => card(i, true)).join("")}</div>
-      <div class="total"><span>Total</span><span class="amount">${money(k.total)}</span>${k.badge ? `<span class="badge">${esc(k.badge)}</span>` : ""}</div>
-      ${safeUrl(k.carrito) ? `<a class="button cart" href="${esc(k.carrito)}" ${TARGET}>Agregar todo al carrito</a>` : ""}`
+      ${totalBox(k)}
+      ${safeUrl(k.carrito) ? `<a class="button cart" href="${esc(k.carrito)}" ${TARGET}>Agregar todo al carrito</a>` : ""}
+      ${perks(k)}`
       : `<div class="empty">Quitaste todos los productos del kit.</div>`) + alt + removed + extra + `<p class="small">${prices}</p>`;
 
   // Chat: se reinicia con otra foto u otro material; con cambios en el kit, solo se avisa

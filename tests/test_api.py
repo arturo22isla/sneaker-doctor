@@ -43,14 +43,35 @@ def test_kit_con_carrito_etiquetado_y_motivos(client):
 
 
 def test_quitar_producto_y_pack(client):
-    k = client.post("/api/kit", json={"materiales": ["gamuza"]}).json()
-    pack = next(i["sku"] for i in k["items"] if i["contenido"])
-    sin_pack = client.post("/api/kit", json={"materiales": ["gamuza"], "quitados": [pack]}).json()
-    assert pack not in {i["sku"] for i in sin_pack["items"]}
-    assert sin_pack["quitados"][0]["sku"] == pack and sin_pack["quitados"][0]["porque"]
-    sin_protector = client.post("/api/kit", json={"materiales": ["gamuza"], "quitados": [pack, "PCLPP"]}).json()
+    sin_protector = client.post("/api/kit", json={"materiales": ["gamuza"], "quitados": ["PCLPP"]}).json()
     assert "PCLPP" not in {i["sku"] for i in sin_protector["items"]}
-    assert {"PCLPP", pack} == {i["sku"] for i in sin_protector["quitados"]}
+    assert sin_protector["quitados"][0]["sku"] == "PCLPP" and sin_protector["quitados"][0]["porque"]
+    # Un pack quitado deja de ofrecerse (se busca una combinación donde el pack sea la mejor opción)
+    for body in ({"materiales": m, "suela": s} for m in (["gamuza"], ["cuero"], ["lona"]) for s in ("normal", "gastada")):
+        k = client.post("/api/kit", json=body).json()
+        pack = next((i["sku"] for i in k["items"] if i["contenido"]), None)
+        if pack:
+            sin_pack = client.post("/api/kit", json={**body, "quitados": [pack]}).json()
+            assert pack not in {i["sku"] for i in sin_pack["items"]} and sin_pack["quitados"][0]["sku"] == pack
+            break
+
+
+def test_kit_muestra_descuento_por_volumen_y_envio(client):
+    k = client.post("/api/kit", json={"materiales": ["gamuza"]}).json()
+    v = k["volumen"]
+    assert v["pagas"] == round(k["total"] - v["descuento"], 2) and "gratis" in k["envio"]
+
+
+def test_chat_conoce_todo_el_catalogo(client, monkeypatch):
+    seen = {}
+
+    def fake(materials, question, products, *a, **kw):
+        seen["products"] = products
+        yield "ok"
+    monkeypatch.setattr(api.chat, "answer_stream", fake)
+    client.post("/api/chat", json={"materiales": ["lona"], "pregunta": "¿Venden hormas?"})
+    text = " ".join(seen["products"])
+    assert "Hormas Premium" in text and "descuento por volumen" in text
 
 
 def test_diagnostico_rechaza_archivos_que_no_son_imagenes(client):

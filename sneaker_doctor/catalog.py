@@ -7,23 +7,26 @@ from sneaker_doctor import config
 from sneaker_doctor.packs import PACKS, best_option
 
 # Kit base por material, según las descripciones de cleanlab.pe. Validar con Clean Lab.
+# Regla de Clean Lab: el Foam Pack va en todos los kits (trae limpiador, Escobilla Premium, Escobilla Basic y microfibra).
 BASE_KIT = {
-    "gamuza": ["LCLKG", "PCLACP", "PCLPP"],    # limpieza en seco + color + protector
-    "cuero": ["LCLFP", "PCLRP", "PCLPP"],      # espuma + renovador (no apto para gamuza) + protector
-    "lona": ["LCLFP", "PCLPP"],                # el Foam Pack trae escobilla de cerdas duras para lona
-    "malla": ["LCLFP", "LCLE41", "PCLPP"],     # espuma + cepillo para ranuras + protector
+    "gamuza": ["LCLFP", "LCLKG", "PCLACP", "PCLPP"],  # + Kit de Gamuza (limpieza en seco) y Activador de Color
+    "cuero": ["LCLFP", "PCLRP", "PCLPP"],             # + Renovador de cuero (no apto para gamuza)
+    "lona": ["LCLFP", "PCLPP"],
+    "malla": ["LCLFP", "PCLPP"],
 }
 
 # Productos para la suela según su estado (instrucciones de cleanlab.pe).
 SOLE_STATES = {
-    "normal": "Blanca o en buen estado",
-    "amarilla": "Amarilla u oxidada",
-    "gastada": "Sucia o desgastada",
+    "normal": "Limpia o en buen estado",
+    "sucia": "Sucia",
+    "amarilla": "Blanca que se puso amarilla",
+    "gastada": "Blanca y desgastada (perdió el blanco)",
 }
 SOLE_KIT = {
     "normal": [],
-    "amarilla": ["ACLRDS"],             # Crema Renovadora: revierte la oxidación con exposición al sol
-    "gastada": ["LCLEB", "LCLBP-P"],    # Escobilla Basic para suelas + Blanqueador (pintura acrílica)
+    "sucia": [],                # se limpia con la Escobilla Basic que ya trae el Foam Pack
+    "amarilla": ["ACLRDS"],     # Crema Renovadora: revierte la oxidación con exposición al sol
+    "gastada": ["LCLBP-P"],     # Blanqueador: pintura blanca para la media suela (solo suelas blancas)
 }
 
 
@@ -34,7 +37,30 @@ EXTRA_NEEDS = {
     "olor": ("Mal olor", ["PCLEO"]),                          # Eliminador de Olores
     "proteger_suela": ("Proteger la suela", ["PCLSP"]),  # Sole Shield
     "comodidad": ("Comodidad", ["ACLPP2"]),    # Plantillas Premium
+    "interior": ("Limpieza por dentro", ["LCLE41"]),  # Cepillo 4 en 1: interior, ranuras y pasadores
 }
+
+# Promociones de cleanlab.pe que se aplican al pagar. Validar con Clean Lab si cambian.
+VOLUME_TIERS = [(349, 0.20), (219, 0.15), (169, 0.10)]  # compra desde S/ X y ahorra Y %
+FREE_SHIPPING = 69                                       # envío gratis desde S/ 69
+
+
+def volume_rate(subtotal: float) -> float:
+    """Descuento por volumen que aplica la tienda al pagar, según el subtotal."""
+    return next((rate for minimum, rate in VOLUME_TIERS if subtotal >= minimum), 0.0)
+
+
+def final_price(subtotal: float) -> float:
+    """Lo que paga el cliente después del descuento por volumen."""
+    return round(subtotal * (1 - volume_rate(subtotal)), 2)
+
+
+def next_tier(subtotal: float):
+    """(cuánto falta, porcentaje) para el siguiente escalón de descuento, o None si ya está en el más alto."""
+    for minimum, rate in sorted(VOLUME_TIERS):
+        if subtotal < minimum:
+            return round(minimum - subtotal, 2), rate
+    return None
 
 
 # Por qué se recomienda cada producto (resumen de las descripciones de cleanlab.pe). Validar con Clean Lab.
@@ -42,11 +68,11 @@ REASONS = {
     "LCLKG": "Limpia la gamuza y el nobuck en seco, sin agua, para no mancharlos ni endurecerlos.",
     "PCLACP": "Revive el color de la gamuza y el nobuck desgastados después de limpiarlos.",
     "PCLPP": "Repele el agua y las manchas: la zapatilla se ensucia menos y la limpieza dura más.",
-    "LCLFP": "Limpiador en espuma con escobillas y microfibra: limpia cuero, lona y malla sin dañarlos.",
+    "LCLFP": "Limpiador en espuma con escobillas y microfibra: la base para limpiar cualquier zapatilla, suela incluida.",
     "PCLRP": "Hidrata y devuelve el color al cuero liso para que no se reseque ni se agriete.",
-    "LCLE41": "Llega a las ranuras, costuras y agujeros de la malla donde la escobilla no entra.",
     "ACLRDS": "Revierte el amarillo de la suela (oxidación) con ayuda del sol.",
     "LCLEB": "Cerdas rígidas para sacar la suciedad incrustada de la suela.",
+    "LCLE41": "Limpia por dentro y llega a ranuras, costuras y pasadores donde la escobilla no entra.",
     "LCLBP-P": "Plumones blanqueadores que devuelven el blanco a la media suela gastada.",
     "PCLSG": "Evita que se formen arrugas en la punta al caminar.",
     "PCLHP": "Mantienen la forma y evitan las arrugas mientras no las usas.",
@@ -157,7 +183,7 @@ def recommend(materials, catalog: pd.DataFrame, co_purchase: pd.DataFrame | None
     chosen = [item(catalog, s) for s in all_skus]
     before = sum(i["precio_antes"] or i["precio"] for i in chosen)
     total = sum(i["precio"] for i in chosen)
-    pack = best_option(all_skus, catalog, exclude=removed)
+    pack = best_option(all_skus, catalog, exclude=removed, final=final_price)  # compara lo que realmente se paga
     if pack:
         pack = {**pack, "packs": [{**item(catalog, p), "contenido": [catalog.loc[s, "nombre"] for s in PACKS[p] if s in catalog.index]}
                                   for p in pack["packs"]],

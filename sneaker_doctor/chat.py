@@ -31,6 +31,7 @@ CARE_GUIDE = {
         "Limpia en seco: frota las manchas superficiales con el borrador especial, siempre en una misma dirección.",
         "Cepilla en seco en la dirección del pelo: cerdas de nylon para limpieza general y metálicas para suciedad difícil.",
         "Termina con las cerdas de silicona para recuperar el acabado aterciopelado.",
+        "Limpia la suela y las partes que no son de gamuza con el Foam Pack (escobilla + limpiador + microfibra).",
         "Si perdió color, agita el Activador de Color, aplícalo de forma uniforme, deja reposar 1 minuto y seca al aire.",
         PROTECT_STEP,
     ],
@@ -40,12 +41,17 @@ CARE_GUIDE = {
         PROTECT_STEP,
     ],
     "lona": FOAM_STEPS[:1] + ["Usa la escobilla de cerdas duras (Basic) para la lona."] + FOAM_STEPS[1:] + [PROTECT_STEP],
-    "malla": FOAM_STEPS[:1] + ["Usa la escobilla de cerdas suaves y el Cepillo 4 en 1 para las ranuras."] + FOAM_STEPS[1:] + [PROTECT_STEP],
+    "malla": FOAM_STEPS[:1] + ["Usa la escobilla de cerdas suaves (Premium) para la malla."] + FOAM_STEPS[1:] + [PROTECT_STEP],
 }
 
 SOLE_GUIDE = {
     "normal": [
         "Limpia la suela junto con el resto de la zapatilla; no necesita un tratamiento especial.",
+    ],
+    "sucia": [
+        "Usa la Escobilla Basic (cerdas duras) del Foam Pack con agua y limpiador sobre la suela y la media suela.",
+        "Frota en círculos, retira la espuma con la microfibra y repite en las zonas más sucias.",
+        "Deja secar por completo antes de usarlas.",
     ],
     "amarilla": [
         "Aplica una capa ligera de Crema Renovadora de Suela sobre las zonas amarillas, sin tocar materiales que no sean caucho.",
@@ -54,7 +60,7 @@ SOLE_GUIDE = {
         "Si sigue amarilla, repite el proceso; las suelas muy oxidadas pueden necesitar varias sesiones.",
     ],
     "gastada": [
-        "Limpia la suela con la Escobilla Basic (cerdas duras) y déjala secar por completo.",
+        "Limpia la suela con la Escobilla Basic (cerdas duras) del Foam Pack y déjala secar por completo.",
         "Agita el Blanqueador y presiona la punta hasta que fluya la pintura.",
         "Aplica una primera capa uniforme sobre la media suela y deja secar 1 hora.",
         "Aplica una segunda capa y deja secar 48 horas para un acabado duradero.",
@@ -63,15 +69,14 @@ SOLE_GUIDE = {
 
 # Datos oficiales que el chat debe respetar aunque la guía no los mencione (fuente: cleanlab.pe).
 MATERIAL_NOTES = {
-    "gamuza": ("Para gamuza y nobuck el producto especializado es el Kit de Gamuza Premium (limpieza en seco): "
-               "recomiéndalo siempre primero. El Foam Pack y el Limpiador Premium son seguros para cualquier "
-               "material, incluida la gamuza, según Clean Lab. No ofrezcas el Foam Pack por iniciativa propia en "
-               "gamuza; si el cliente pregunta por él o tiene una mancha que la limpieza en seco no sacó, aclara que "
-               "es seguro y que el Kit de Gamuza sigue siendo el especializado para la limpieza en seco. "
+    "gamuza": ("Para gamuza y nobuck el kit es: Kit de Gamuza Premium (limpieza en seco de la gamuza), Activador de "
+               "Color (recupera el color) y Foam Pack (suela, partes que no son de gamuza y manchas difíciles; es "
+               "seguro para cualquier material, incluida la gamuza). Empieza siempre por la limpieza en seco. "
                "El Renovador de Cuero NO se usa en gamuza ni nobuck."),
     "cuero": "El Renovador de Cuero es para cuero liso; no se usa en gamuza ni nobuck.",
     "lona": "Para lona sirve la Escobilla Basic de cerdas duras incluida en el Foam Pack.",
-    "malla": "Para malla usa la Escobilla Premium de cerdas suaves y el Cepillo 4 en 1 para las ranuras.",
+    "malla": ("Para malla usa la Escobilla Premium de cerdas suaves del Foam Pack. Para el interior y las ranuras "
+              "está el Cepillo 4 en 1 (opción 'Limpieza por dentro')."),
 }
 
 HISTORY = 8  # mensajes previos que se envían al modelo: la conversación no crece sin límite
@@ -82,6 +87,8 @@ SYSTEM = (
     "Respondes en español, en tono cercano, claro y en pocas líneas. "
     "Ya estás en medio de una conversación: no saludes ni te presentes, ve directo a la respuesta. "
     "Solo recomiendas productos de la lista que se te da; si un producto no está en la lista, no lo inventes. "
+    "La lista incluye el catálogo completo de Clean Lab: si preguntan por un producto que está en ella, confirma que se "
+    "vende y menciona su precio. "
     "Cuando expliques cómo usar un producto, sigue su modo de uso oficial tal como aparece en la lista. "
     "Respeta siempre los datos oficiales que se te indican; no los contradigas. "
     "Si la pregunta no es sobre el cuidado de zapatillas, dilo amablemente. "
@@ -329,3 +336,27 @@ def answer_stream(materials, question: str, products: list[str], history: list[d
                 return
     meta["source"] = "guia"
     yield from _typed(fallback(materials, sole))
+
+# ---------------- Segunda opinión del material ----------------
+MATERIAL_PROMPT = ("Mira la parte de arriba (la capellada) de la zapatilla de la foto. ¿De qué material es "
+                   "principalmente? Opciones: gamuza (incluye nobuck), cuero (liso o sintético), lona (tela tipo "
+                   "canvas o jean) o malla (mesh, tejido o knit). Responde solo con una de esas cuatro palabras.")
+
+
+def material_check(image: bytes, options: list[str], timeout: float = 8) -> str | None:
+    """Material según Gemini (con la foto), o None si no responde a tiempo o la respuesta no es una opción."""
+    key = config.get("GEMINI_API_KEY")
+    if config.LLM_PROVIDER != "gemini" or not key:
+        return None
+    body = {"contents": [{"role": "user", "parts": [
+                {"inline_data": {"mime_type": "image/jpeg", "data": base64.b64encode(image).decode()}},
+                {"text": MATERIAL_PROMPT}]}],
+            "generationConfig": {"temperature": 0}}
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{config.GEMINI_MODEL}:generateContent"
+    try:
+        resp = requests.post(url, headers={"x-goog-api-key": key}, json=body, timeout=timeout)
+        resp.raise_for_status()
+        text = resp.json()["candidates"][0]["content"]["parts"][0]["text"].strip().lower()
+    except (requests.RequestException, KeyError, IndexError, ValueError):
+        return None
+    return next((m for m in options if m in text), None)

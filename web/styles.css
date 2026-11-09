@@ -116,8 +116,14 @@ legend { font-size: 15px; font-weight: 600; margin-bottom: 8px; padding: 0; }
 .remove { position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--line);
   background: #fff; color: var(--muted); font-size: 14px; line-height: 1; }
 .remove:hover { color: var(--red); border-color: var(--red); }
-.total { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; background: var(--navy); color: #fff; padding: 14px 16px; }
-.total .amount { font-size: 24px; font-weight: 800; }
+.total { background: var(--navy); color: #fff; padding: 14px 16px; }
+.total .row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 14px; color: #D6E0EA; }
+.total .row.grand { color: #fff; font-size: 16px; margin-top: 2px; }
+.total .amount { font-size: 26px; font-weight: 800; }
+/* Mensajes de ahorro: letras amarillas sobre el azul marino */
+.total .hint { color: var(--yellow); font-weight: 700; font-size: 14px; margin: 6px 0 0; line-height: 1.4; }
+.store-perks { list-style: none; padding: 0; margin: 10px 0 0; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; color: var(--navy); }
+.store-perks li::before { content: "✓"; font-weight: 800; margin-right: 6px; }
 .badge { background: var(--yellow); color: var(--navy); font-weight: 700; padding: 2px 10px; font-size: 13px; }
 .cart { display: flex; width: 100%; margin-top: 8px; min-height: 52px; }
 .removed { margin-top: 14px; border: 1px dashed #B9C4D0; padding: 10px 14px; }

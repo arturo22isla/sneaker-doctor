@@ -49,7 +49,8 @@ def test_suela_amarilla_suma_blanqueador():
     rec = recommend("lona", catalog, sole="amarilla")
     assert [i["sku"] for i in rec["sole_kit"]] == ["ACLRDS"]          # suela amarilla: crema renovadora
     gastada = recommend("lona", catalog, sole="gastada")["sole_kit"]
-    assert [i["sku"] for i in gastada] == ["LCLEB", "LCLBP-P"]        # sucia: escobilla dura + blanqueador
+    assert [i["sku"] for i in gastada] == ["LCLBP-P"]                 # blanca desgastada: blanqueador
+    assert recommend("lona", catalog, sole="sucia")["sole_kit"] == []  # sucia: basta la escobilla del Foam Pack
     assert recommend("lona", catalog, sole="normal")["sole_kit"] == []
     assert rec["total"] == round(sum(catalog.loc[s, "precio"] for s in BASE_KIT["lona"] + ["ACLRDS"]), 2)
     assert rec["ahorro"] >= 0
@@ -82,7 +83,7 @@ def test_zapatilla_mixta_junta_kits_sin_repetir():
     catalog = load_catalog()
     rec = recommend(["gamuza", "malla"], catalog)
     skus = [i["sku"] for i in rec["kit"]]
-    assert skus == ["LCLKG", "PCLACP", "PCLPP", "LCLFP", "LCLE41"]  # el Protector aparece una sola vez
+    assert skus == ["LCLFP", "LCLKG", "PCLACP", "PCLPP"]  # el Foam Pack y el Protector aparecen una sola vez
     assert len(skus) == len(set(skus))
 
 
@@ -184,3 +185,27 @@ def test_precios_de_la_web_actualizan_el_catalogo():
              "imagen": "https://cdn.shopify.com/x.png", "instrucciones": "Paso 1"}]
     new = refresh_from_web(catalog, rows)
     assert new.loc[sku, "precio"] == 1.5 and new.loc[sku, "variant_id"] == "123456789"
+
+
+def test_foam_pack_en_todos_los_kits_y_limpieza_por_dentro():
+    catalog = load_catalog()
+    for material in BASE_KIT:
+        assert "LCLFP" in [i["sku"] for i in recommend(material, catalog)["kit"]]
+    gamuza = [i["sku"] for i in recommend("gamuza", catalog)["kit"]]
+    assert {"LCLKG", "PCLACP"} <= set(gamuza)
+    interior = recommend("malla", catalog, needs=["interior"])
+    assert [i["sku"] for i in interior["extras_kit"]] == ["LCLE41"]
+
+
+def test_descuento_por_volumen_y_mejor_opcion():
+    from sneaker_doctor.catalog import final_price, next_tier, volume_rate
+    from sneaker_doctor.packs import best_option
+
+    assert volume_rate(168.99) == 0 and volume_rate(169) == 0.10 and volume_rate(219) == 0.15 and volume_rate(400) == 0.20
+    assert final_price(209.60) == 188.64 and next_tier(209.60) == (9.40, 0.15) and next_tier(500) is None
+    # Caso real: el pack baja el subtotal a 209.60 (10 %), pero suelto suma 219.50 y llega al 15 % (186.58)
+    catalog = pd.DataFrame({"precio": [109.90, 49.90, 29.90, 19.90, 59.90, 59.90], "disponible": True},
+                           index=["LCLFB-P", "PCLPP", "LCLE41", "LCLEB", "LCLFP", "LCLBP-P"])
+    needed = ["LCLFP", "LCLBP-P", "PCLPP", "LCLE41", "LCLEB"]
+    assert best_option(needed, catalog) is not None                     # sin descuento por volumen, el pack gana
+    assert best_option(needed, catalog, final=final_price) is None      # con el descuento real, conviene suelto

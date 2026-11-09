@@ -32,14 +32,16 @@ from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel, Field, StringConstraints
 
 from sneaker_doctor import MATERIALS, chat, config, feedback, vision
-from sneaker_doctor.catalog import (EXTRA_NEEDS, SOLE_STATES, cart_url, load_catalog, load_co_purchase,
-                                    product_url, products_for, reason, recommend, refresh_from_web)
+from sneaker_doctor.catalog import (EXTRA_NEEDS, FREE_SHIPPING, SOLE_STATES, VOLUME_TIERS, cart_url, final_price,
+                                    load_catalog, load_co_purchase, next_tier, product_url, reason, recommend,
+                                    refresh_from_web, volume_rate)
 from sneaker_doctor.web_catalog import fetch_products, to_rows
 
 ROOT = Path(__file__).resolve().parent.parent
 WEB, ASSETS = ROOT / "web", ROOT / "assets"
 MAX_PHOTO = 10 * 1024 * 1024        # bytes de la foto que se sube
 MAX_CHAT_PHOTO = 2 * 1024 * 1024    # foto reducida que acompaña cada pregunta
+CONFIDENT = 0.8                    # por debajo, el material se confirma con Gemini
 PRICE_TTL, PRICE_RETRY = 900, 120   # segundos: precios cada 15 min; si la tienda falla, reintenta a los 2 min
 
 log = logging.getLogger("sneaker_doctor")
@@ -247,8 +249,17 @@ def diagnose(request: Request, foto: UploadFile = File(...), forzar: bool = Form
     ranking = vision.predict(image)
     if ranking is None:
         return {**out, "ranking": [], "sugeridos": [MATERIALS[0]], "incierto": True}
-    return {**out, "ranking": [{"material": m, "prob": round(p, 3)} for m, p in ranking],
-            "sugeridos": vision.detected(ranking), "incierto": ranking[0][1] < 0.5}
+    result = {**out, "ranking": [{"material": m, "prob": round(p, 3)} for m, p in ranking],
+              "sugeridos": vision.detected(ranking), "incierto": ranking[0][1] < 0.5, "verificado": False}
+    # Si el modelo de Clean Lab no está seguro, Gemini mira la foto y da una segunda opinión
+    if ranking[0][1] < CONFIDENT and GLOBAL_CHAT.allow():
+        second = chat.material_check(chat.image_to_jpeg(image), MATERIALS)
+        if second:
+            result["verificado"] = True
+            result["incierto"] = False
+            if second != ranking[0][0]:
+                result["sugeridos"] = [second]
+    return result
 
 
 @app.post("/api/kit")
@@ -263,13 +274,20 @@ def kit(data: KitIn, request: Request):
         items = pack["packs"] + pack["sueltos"]
         bonus = f" · el pack además trae {', '.join(pack['extras'])}" if pack["extras"] else ""
         total, badge = pack["total"], f"Mejor precio: ahorras S/ {pack['ahorro']:.2f} frente a comprar suelto{bonus}"
-        alternative = {"items": [view(i) for i in singles], "total": rec["total"], "carrito": cart_url(singles)}
+        alternative = {"items": [view(i) for i in singles], "total": rec["total"],
+                       "final": final_price(rec["total"]), "carrito": cart_url(singles)}
     else:
         items, total, alternative = singles, rec["total"], None
         badge = f"Ahorras S/ {rec['ahorro']:.2f} con las promociones de hoy" if rec["ahorro"] > 0 else ""
     extra = rec["extra"]
+    paid = final_price(total)
+    upgrade = next_tier(total)
     return {
         "items": [view(i) for i in items], "total": round(total, 2), "badge": badge, "carrito": cart_url(items),
+        # Descuento por volumen y envío gratis de cleanlab.pe (se aplican al pagar)
+        "volumen": {"porcentaje": round(volume_rate(total) * 100), "descuento": round(total - paid, 2), "pagas": paid,
+                    "siguiente": {"falta": upgrade[0], "porcentaje": round(upgrade[1] * 100)} if upgrade else None},
+        "envio": {"gratis": paid >= FREE_SHIPPING, "desde": FREE_SHIPPING, "falta": round(max(0, FREE_SHIPPING - paid), 2)},
         "sueltos": alternative, "quitados": [view(i) for i in rec["removed"]],
         "extra": {"nombre": extra["nombre"], "precio": extra["precio"], "url": product_url(extra)} if extra else None,
         "intro": chat.fallback(data.materiales, data.suela), "guia_suela": chat.sole_text(data.suela),
@@ -324,8 +342,13 @@ def ask(data: ChatIn, request: Request):
     if rec["pack_option"]:
         products += [f"{p['nombre']} (S/ {p['precio']:.2f}), incluye: {', '.join(p['contenido'])}"
                      for p in rec["pack_option"]["packs"]]
-    products += [f"{r.nombre} (S/ {r.precio:.2f})" for r in products_for(data.materiales, catalog).itertuples()
-                 if r.Index not in {i["sku"] for i in chosen} and r.Index not in set(data.quitados)]
+    # Catálogo completo (nombre y precio): así el chat sabe todo lo que vende Clean Lab, aunque no esté en el kit
+    in_kit = {i["sku"] for i in chosen} | set(data.quitados)
+    products += [f"{r.nombre} (S/ {r.precio:.2f})" for r in catalog[catalog["disponible"]].drop_duplicates("nombre").itertuples()
+                 if r.Index not in in_kit]
+    tiers = ", ".join(f"desde S/ {m} ahorra {round(r * 100)} %" for m, r in sorted(VOLUME_TIERS))
+    products.append(f"Promociones de cleanlab.pe: descuento por volumen al pagar ({tiers}); envío GRATIS desde "
+                    f"S/ {FREE_SHIPPING}; recojo en tienda gratis; compras seguras.")
     removed = [f"{i['nombre']}. Por qué se lo recomendamos: {i['porque']}" for i in rec["removed"]]
     history = [{"role": m.rol, "content": m.texto} for m in data.historial][-chat.HISTORY:]
     meta: dict = {}

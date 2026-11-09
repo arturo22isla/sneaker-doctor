@@ -25,11 +25,13 @@ PACKS = {
 
 
 def best_option(needed: list[str], catalog: pd.DataFrame, max_packs: int = 2,
-                exclude: set[str] | frozenset = frozenset()) -> dict | None:
+                exclude: set[str] | frozenset = frozenset(), final=lambda total: total) -> dict | None:
     """Combinación de hasta `max_packs` packs + productos sueltos que cubre `needed` al menor precio.
 
     Solo se devuelve si sale más barata que comprar todo suelto. Los productos de más
     que traiga el pack se informan como regalo del pack.
+    `final` convierte un subtotal en lo que se paga de verdad (por ejemplo, con el descuento por volumen):
+    comprar suelto puede alcanzar un escalón de descuento mayor y terminar siendo más barato que el pack.
     """
     needed = [s for s in dict.fromkeys(needed) if s in catalog.index]
     price = lambda s: float(catalog.loc[s, "precio"])  # noqa: E731
@@ -45,8 +47,9 @@ def best_option(needed: list[str], catalog: pd.DataFrame, max_packs: int = 2,
                 continue  # dos packs con el mismo producto: no tiene sentido
             loose = [s for s in needed if s not in contents]
             total = sum(price(p) for p in combo) + sum(price(s) for s in loose)
-            if total < singles_total - 0.01 and (best is None or total < best["total"]):
-                best = {"packs": list(combo), "sueltos": loose, "total": round(total, 2),
-                        "ahorro": round(singles_total - total, 2),
+            paid = final(total)
+            if paid < final(singles_total) - 0.01 and (best is None or paid < best["final"]):
+                best = {"packs": list(combo), "sueltos": loose, "total": round(total, 2), "final": paid,
+                        "ahorro": round(final(singles_total) - paid, 2),
                         "extras": [s for s in contents if s not in needed]}
     return best
