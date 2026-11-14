@@ -58,6 +58,7 @@ sneaker-doctor/
 ├── data/catalog.csv             catálogo público de Clean Lab
 ├── models/                      modelo entrenado, etiquetas y métricas
 ├── tests/                       pruebas con pytest (núcleo y API)
+├── app.py                       versión en Streamlit (Streamlit Community Cloud)
 ├── Dockerfile                   imagen de la página web para Cloud Run
 └── DESPLIEGUE.md                cómo publicarla en Google Cloud y conectar Shopify
 ```
@@ -96,6 +97,19 @@ Para actualizar precios y productos: `python scripts/actualizar_catalogo.py`.
 ## Publicación
 
 En Google Cloud Run, paso a paso en [DESPLIEGUE.md](DESPLIEGUE.md): permisos de Shopify (precios y etiqueta de pedidos), secretos, publicación y dominio propio.
+
+## Versión en Streamlit
+
+La misma lógica (modelo, kit, descuentos y chat) también se publica en Streamlit Community Cloud con `app.py`:
+
+```bash
+streamlit run app.py
+```
+
+En [share.streamlit.io](https://share.streamlit.io): *Create app* → este repositorio, rama `main`, archivo `app.py`,
+**Python 3.12**, y en *Secrets* `GEMINI_API_KEY` (y `SHOPIFY_STOREFRONT_TOKEN` + `SHOPIFY_DOMAIN` para precios en vivo).
+Las dependencias de Streamlit están en `requirements.txt`; las de la página web en `requirements-web.txt`; las de
+entrenamiento (TensorFlow) en `requirements-train.txt`.
 
 ## Seguridad y privacidad
 

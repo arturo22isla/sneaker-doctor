@@ -1,0 +1,18 @@
+# Identidad visual de Clean Lab (cleanlab.pe): fondo claro, texto azul marino, acentos turquesa y amarillo
+[theme]
+base = "light"
+primaryColor = "#1B2E46"              # azul marino de la web: buen contraste en chips, radios y botones
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F2F5F8"
+textColor = "#1B2E46"
+font = "Figtree:https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;800&display=swap"
+borderColor = "#DCE3EA"
+baseRadius = "12px"
+
+[server]
+headless = true
+maxUploadSize = 10              # MB: una foto no necesita más (por defecto Streamlit acepta 200)
+
+[client]
+toolbarMode = "viewer"
+showErrorDetails = "none"     # el visitante no ve trazas con rutas ni código

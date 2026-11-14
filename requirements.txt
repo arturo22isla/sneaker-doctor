@@ -1,5 +1,4 @@
-# Desarrollo y entrenamiento: lo mismo que la página web (requirements-web.txt) más TensorFlow,
-# que solo se usa para entrenar el modelo y exportarlo a TensorFlow Lite (scripts/)
+# Streamlit Cloud (app.py): lo mismo que la página web (requirements-web.txt) más Streamlit.
+# El modelo corre con TensorFlow Lite (LiteRT), así que no hace falta instalar TensorFlow aquí.
 -r requirements-web.txt
-tensorflow-cpu>=2.19,<2.20 ; sys_platform == "linux"
-tensorflow==2.19.1 ; sys_platform != "linux"
+streamlit==1.67.0
