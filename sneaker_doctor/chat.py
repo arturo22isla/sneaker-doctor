@@ -101,6 +101,8 @@ SYSTEM = (
     "explícita agregar o quitar un producto de su kit, confírmalo en una frase y escribe al final, en una línea aparte, "
     "[[agregar:CÓDIGO]] o [[quitar:CÓDIGO]] con el código exacto de la lista. Nunca uses esas etiquetas si el cliente "
     "no lo pidió, ni para productos que no están en la lista. No muestres los códigos en el resto de la respuesta. "
+    "Si el producto que pide tiene dos variantes en la lista (por ejemplo, plantillas talla S o talla M), pregunta "
+    "primero cuál prefiere y agrégalo solo cuando lo diga. "
     "Si el cliente pregunta por qué un producto está en su kit, o si puede quitarlo, explica con el motivo indicado "
     "qué beneficio concreto le da a su zapatilla y qué pasaría sin él, en dos o tres líneas; respeta su decisión "
     "sin presionar. "
