@@ -21,7 +21,7 @@ except Exception:
     pass
 
 from sneaker_doctor import MATERIALS, chat, config, feedback, vision  # noqa: E402
-from sneaker_doctor.api import actions, cleaned  # noqa: E402  (mismos filtros del chat que la página web)
+from sneaker_doctor.api import actions, catalog_line, cleaned  # noqa: E402  (mismos filtros del chat que la página web)
 from sneaker_doctor.catalog import (EXTRA_NEEDS, FREE_SHIPPING, SOLE_STATES, VOLUME_TIERS, cart_url,  # noqa: E402
                                     final_price, item, load_catalog, load_co_purchase, next_tier, product_url,
                                     reason, recommend, refresh_from_web, suggestions, volume_rate)
@@ -371,7 +371,8 @@ with middle, st.container(key="kit_panel"):
         grid(items)  # la opción más barata (con descuento por volumen) va primero
         if pack:
             gift = f"El pack además trae {', '.join(pack['extras'])}" if pack["extras"] else ""
-            total_bar(total, f"Ahorras S/ {pack['ahorro']:.2f} con el pack frente a comprar suelto", gift)
+            total_bar(total, f"Ahorras S/ {pack['ahorro']:.2f} con el pack frente a comprar suelto" if pack["ahorro"] > 0 else "",
+                      gift)
         else:
             total_bar(total, f"Ahorras S/ {rec['ahorro']:.2f} con las promociones de hoy" if rec["ahorro"] > 0 else "")
         upsell(total, {i["sku"] for i in singles + items} | set(st.session_state.quitados))
@@ -469,8 +470,8 @@ def chat_panel(materials, sole, needs, rec, photo_jpeg, photo_key):
         products += [f"{p['nombre']} [{p['sku']}] (S/ {p['precio']:.2f}), incluye: {', '.join(p['contenido'])}"
                      for p in rec["pack_option"]["packs"]]
     in_kit = {i["sku"] for i in chosen} | set(st.session_state.quitados)
-    available = catalog[catalog["disponible"]].drop_duplicates("nombre")
-    products += [f"{r.nombre} [{r.Index}] (S/ {r.precio:.2f})" for r in available.itertuples() if r.Index not in in_kit]
+    available = catalog[catalog["disponible"]]
+    products += [catalog_line(r.Index, catalog) for r in available.itertuples() if r.Index not in in_kit]
     tiers = ", ".join(f"desde S/ {m} ahorra {round(r * 100)} %" for m, r in sorted(VOLUME_TIERS))
     products.append(f"Promociones de cleanlab.pe: descuento por volumen al pagar ({tiers}); envío GRATIS desde "
                     f"S/ {FREE_SHIPPING}; recojo en tienda gratis; compras seguras.")

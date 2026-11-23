@@ -201,7 +201,23 @@ def recommend(materials, catalog: pd.DataFrame, co_purchase: pd.DataFrame | None
     chosen = [item(catalog, s) for s in all_skus]
     before = sum(i["precio_antes"] or i["precio"] for i in chosen)
     total = sum(i["precio"] for i in chosen)
-    pack = best_option(all_skus, catalog, exclude=removed, final=final_price)  # compara lo que realmente se paga
+    # Packs que el cliente pidió (botón o chat): van tal cual y el resto del kit se completa al mejor precio
+    forced = [p for p in dict.fromkeys(added or []) if p in PACKS and p in catalog.index and p not in removed]
+    if forced:
+        covered = {s for p in forced for s in PACKS[p]}
+        rest = [s for s in all_skus if s not in covered]
+        best = best_option(rest, catalog, exclude=removed | set(forced), final=final_price) if rest else None
+        packs_ = forced + (best["packs"] if best else [])
+        loose = best["sueltos"] if best else rest
+        price = lambda s: float(catalog.loc[s, "precio"])  # noqa: E731
+        pack_total = round(sum(price(p) for p in packs_) + sum(price(s) for s in loose), 2)
+        contents = {s for p in packs_ for s in PACKS[p]}
+        singles_value = sum(price(s) for s in set(all_skus) | (contents & set(catalog.index)))
+        pack = {"packs": packs_, "sueltos": loose, "total": pack_total, "final": final_price(pack_total),
+                "ahorro": round(final_price(singles_value) - final_price(pack_total), 2),
+                "extras": [s for p in packs_ for s in PACKS[p] if s not in all_skus]}
+    else:
+        pack = best_option(all_skus, catalog, exclude=removed, final=final_price)  # compara lo que realmente se paga
     if pack:
         pack = {**pack, "packs": [{**item(catalog, p), "contenido": [catalog.loc[s, "nombre"] for s in PACKS[p] if s in catalog.index]}
                                   for p in pack["packs"]],

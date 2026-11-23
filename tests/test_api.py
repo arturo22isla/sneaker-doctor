@@ -17,6 +17,7 @@ def client(monkeypatch):
     monkeypatch.setattr(config, "LLM_PROVIDER", "none")  # el chat responde con la guía fija
     for limit in api.LIMITS.values():
         limit.calls.clear()
+    api.GLOBAL_CHAT.calls.clear()  # el límite global por minuto también empieza de cero en cada prueba
     with TestClient(api.app) as c:
         yield c
 
@@ -150,3 +151,30 @@ def test_conversacion_se_guarda_sin_datos_personales(client, monkeypatch, caplog
         client.post("/api/chat", json={"materiales": ["lona"], "pregunta": "Mi correo es ana@mail.com y cel 987654321"})
     saved = [json.loads(r.message) for r in caplog.records if '"evento": "chat"' in r.message]
     assert saved and "ana@mail.com" not in saved[0]["pregunta"] and "987654321" not in saved[0]["pregunta"]
+
+
+def test_agregar_un_pack_lo_muestra_en_el_kit(client):
+    k = client.post("/api/kit", json={"materiales": ["malla"], "agregados": ["LCLRPP1-P"]}).json()
+    skus = {i["sku"] for i in k["items"]}
+    assert "LCLRPP1-P" in skus and "LCLFP" not in skus  # el Foam Pack ya viene dentro del pack
+    pack = next(i for i in k["items"] if i["sku"] == "LCLRPP1-P")
+    assert pack["contenido"] and k["total"] > 0
+
+
+def test_chat_conoce_el_contenido_de_los_packs(client, monkeypatch):
+    seen = {}
+
+    def fake(materials, question, products, *a, **kw):
+        seen["products"] = products
+        yield "ok"
+    monkeypatch.setattr(api.chat, "answer_stream", fake)
+    client.post("/api/chat", json={"materiales": ["malla"], "pregunta": "¿qué contiene el pack restauración pro?"})
+    lines = [p for p in seen["products"] if "Pack Restauración Pro" in p]
+    assert len(lines) == 2 and all("incluye:" in p for p in lines)
+    assert any("talla S" in p for p in lines) and any("talla M" in p for p in lines)
+
+
+def test_si_la_ia_falla_a_mitad_de_conversacion_no_repite_la_guia(client):
+    historial = [{"rol": "user", "texto": "hola"}, {"rol": "assistant", "texto": "Hola"}]
+    r = client.post("/api/chat", json={"materiales": ["lona"], "pregunta": "¿qué contiene?", "historial": historial})
+    assert "no pude conectarme" in r.text and "Así se limpia" not in r.text

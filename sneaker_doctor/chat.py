@@ -6,6 +6,7 @@ se responde con la guía fija del material para que la demo nunca se quede sin r
 """
 import base64
 import json
+import logging
 import re
 import threading
 import time
@@ -15,6 +16,8 @@ from collections.abc import Iterator
 import requests
 
 from sneaker_doctor import config
+
+log = logging.getLogger("sneaker_doctor")
 
 # Guía de respaldo por material, resumida del "Modo de uso" de los productos en cleanlab.pe.
 FOAM_STEPS = [
@@ -265,20 +268,33 @@ def _sse_lines(resp):
             yield json.loads(line[6:])
 
 
+def _warn(**data):
+    """Registra por qué falló la IA (sin el texto del cliente), para revisarlo en Cloud Logging."""
+    log.warning(json.dumps({"severity": "WARNING", "evento": "ia", **data}))
+
+
 def _gemini_stream(prompt: str, history: list[dict], image: bytes | None = None) -> Iterator[str]:
     key = config.get("GEMINI_API_KEY")
     if not key:
         raise RuntimeError("Falta GEMINI_API_KEY")
     body = _gemini_body(prompt, history, image)
-    for model in dict.fromkeys([config.GEMINI_MODEL, config.GEMINI_FALLBACK_MODEL]):
+    models = list(dict.fromkeys([config.GEMINI_MODEL, config.GEMINI_FALLBACK_MODEL]))
+    # Si un modelo está saturado o no responde se prueba el siguiente; si fallan todos, un reintento tras una pausa
+    for attempt, model in enumerate(models + models[:1]):
+        if attempt == len(models):
+            time.sleep(1.5)
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:streamGenerateContent"
         try:
             resp = requests.post(url, params={"alt": "sse"}, headers={"x-goog-api-key": key}, json=body,
                                  stream=True, timeout=(5, config.LLM_TIMEOUT))
-        except requests.RequestException:
-            continue  # este modelo no respondió: probar el siguiente
-        if resp.status_code in (429, 503):
+        except requests.RequestException as e:
+            _warn(model=model, error=type(e).__name__)
             continue
+        if resp.status_code in (429, 500, 503):
+            _warn(model=model, error="http", codigo=resp.status_code)
+            continue
+        if not resp.ok:
+            _warn(model=model, error="http", codigo=resp.status_code)
         resp.raise_for_status()
         with resp:
             for event in _sse_lines(resp):
@@ -334,11 +350,17 @@ def answer_stream(materials, question: str, products: list[str], history: list[d
             if sent:
                 meta["source"] = config.LLM_PROVIDER
                 return
-        except (requests.RequestException, RuntimeError, KeyError, IndexError, ValueError):
+        except (requests.RequestException, RuntimeError, KeyError, IndexError, ValueError) as e:
+            _warn(error=type(e).__name__, detalle=str(e)[:120], parcial=sent)
             if sent:  # se cortó a mitad de la respuesta: se deja lo que llegó
                 meta["source"] = config.LLM_PROVIDER
                 return
     meta["source"] = "guia"
+    if history:  # a mitad de la conversación, repetir la guía no responde la pregunta
+        yield from _typed("Ahora mismo no pude conectarme con el asistente para responder tu pregunta. Inténtalo de "
+                          "nuevo en unos segundos; mientras tanto, la guía de limpieza de tu zapatilla está al inicio "
+                          "del chat.")
+        return
     yield from _typed(fallback(materials, sole))
 
 # ---------------- Segunda opinión del material ----------------

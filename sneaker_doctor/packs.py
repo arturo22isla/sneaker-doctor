@@ -24,6 +24,10 @@ PACKS = {
 }
 
 
+# Packs que se venden con el mismo nombre en dos variantes: el chat debe saber cuál es cuál
+PACK_VARIANTS = {"LCLRPP1-P": "plantillas talla S", "LCLRPP2-P": "plantillas talla M"}
+
+
 def best_option(needed: list[str], catalog: pd.DataFrame, max_packs: int = 2,
                 exclude: set[str] | frozenset = frozenset(), final=lambda total: total) -> dict | None:
     """Combinación de hasta `max_packs` packs + productos sueltos que cubre `needed` al menor precio.

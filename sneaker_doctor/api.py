@@ -35,6 +35,7 @@ from sneaker_doctor import MATERIALS, chat, config, feedback, vision
 from sneaker_doctor.catalog import (EXTRA_NEEDS, FREE_SHIPPING, SOLE_STATES, VOLUME_TIERS, cart_url, final_price, item,
                                     load_catalog, load_co_purchase, next_tier, product_url, reason, recommend,
                                     refresh_from_web, suggestions, volume_rate)
+from sneaker_doctor.packs import PACK_VARIANTS, PACKS
 from sneaker_doctor.web_catalog import fetch_products, to_rows
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -208,6 +209,17 @@ class KitIn(BaseModel):
     agregados: list[Sku] = Field(default_factory=list, max_length=10)
 
 
+def catalog_line(sku: str, catalog) -> str:
+    """Producto del catálogo para el chat: nombre, código, precio y, si es un pack, qué trae."""
+    line = f"{catalog.loc[sku, 'nombre']} [{sku}] (S/ {float(catalog.loc[sku, 'precio']):.2f})"
+    if sku in PACKS:
+        names = [catalog.loc[s, "nombre"] for s in PACKS[sku] if s in catalog.index]
+        line += f", incluye: {', '.join(names)}"
+        if sku in PACK_VARIANTS:
+            line += f" ({PACK_VARIANTS[sku]})"
+    return line
+
+
 def build_kit(data: KitIn, catalog, co_purchase):
     removed = {s for s in data.quitados if s in catalog.index}
     added = [s for s in data.agregados if s in catalog.index and s not in removed]
@@ -275,7 +287,8 @@ def kit(data: KitIn, request: Request):
     if pack:
         items = pack["packs"] + pack["sueltos"]
         gift = f"El pack además trae {', '.join(pack['extras'])}" if pack["extras"] else ""
-        total, badge = pack["total"], f"Ahorras S/ {pack['ahorro']:.2f} con el pack frente a comprar suelto"
+        total = pack["total"]
+        badge = f"Ahorras S/ {pack['ahorro']:.2f} con el pack frente a comprar suelto" if pack["ahorro"] > 0 else ""
         alternative = {"items": [view(i) for i in singles], "total": rec["total"],
                        "final": final_price(rec["total"]), "carrito": cart_url(singles)}
     else:
@@ -376,8 +389,8 @@ def ask(data: ChatIn, request: Request):
                      for p in rec["pack_option"]["packs"]]
     # Catálogo completo (nombre y precio): así el chat sabe todo lo que vende Clean Lab, aunque no esté en el kit
     in_kit = {i["sku"] for i in chosen} | set(data.quitados)
-    available = catalog[catalog["disponible"]].drop_duplicates("nombre")
-    products += [f"{r.nombre} [{r.Index}] (S/ {r.precio:.2f})" for r in available.itertuples() if r.Index not in in_kit]
+    available = catalog[catalog["disponible"]]
+    products += [catalog_line(r.Index, catalog) for r in available.itertuples() if r.Index not in in_kit]
     valid = set(available.index) | {i["sku"] for i in chosen}  # códigos que el chat puede agregar o quitar
     tiers = ", ".join(f"desde S/ {m} ahorra {round(r * 100)} %" for m, r in sorted(VOLUME_TIERS))
     products.append(f"Promociones de cleanlab.pe: descuento por volumen al pagar ({tiers}); envío GRATIS desde "
